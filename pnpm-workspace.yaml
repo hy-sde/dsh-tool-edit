@@ -1,0 +1,6 @@
+packages:
+  - packages/*
+
+allowBuilds:
+  esbuild: true
+  koffi: set this to true or false

@@ -1,0 +1,46 @@
+{
+  "name": "@hy-sde/dsh-hashline",
+  "version": "0.1.0-rc.5",
+  "description": "Line-anchored edit-patch engine (hashline) ported from oh-my-pi — the pure, dependency-free core behind the rich `edit` tool for DeepSeek Harness.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "clean": "rm -rf dist",
+    "build": "tsc -p tsconfig.build.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "prepack": "pnpm run clean && pnpm run build"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hy-sde/dsh-tool-edit.git"
+  },
+  "license": "MIT",
+  "keywords": [
+    "deepseek",
+    "agent",
+    "harness",
+    "edit",
+    "hashline",
+    "patch"
+  ]
+}
