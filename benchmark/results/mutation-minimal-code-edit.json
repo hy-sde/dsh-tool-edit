@@ -1,0 +1,752 @@
+{
+  "preset": "minimal-code-edit",
+  "model": "deepseek-v4-flash-0731",
+  "tasksRun": 41,
+  "passed": 41,
+  "passRate": 1,
+  "totalDurationMs": 2186733,
+  "aggregates": {
+    "promptTokens": 201720,
+    "completionTokens": 54005,
+    "toolCalls": {
+      "bash": 134,
+      "read": 60,
+      "edit": 155
+    },
+    "toolFailures": {
+      "FsError": 75
+    }
+  },
+  "results": [
+    {
+      "preset": "minimal-code-edit",
+      "task": "duplicate-duplicate-line-flip-001",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 48344,
+      "promptTokens": 3563,
+      "completionTokens": 960,
+      "toolCalls": {
+        "bash": 4,
+        "read": 2,
+        "edit": 2
+      },
+      "toolFailures": {
+        "FsError": 1
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal-code-edit",
+      "task": "duplicate-duplicate-line-flip-002",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 44519,
+      "promptTokens": 5218,
+      "completionTokens": 991,
+      "toolCalls": {
+        "bash": 3,
+        "read": 2,
+        "edit": 2
+      },
+      "toolFailures": {
+        "FsError": 1
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal-code-edit",
+      "task": "duplicate-duplicate-line-flip-003",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 42825,
+      "promptTokens": 7402,
+      "completionTokens": 897,
+      "toolCalls": {
+        "bash": 3,
+        "read": 1,
+        "edit": 1
+      },
+      "toolFailures": {},
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal-code-edit",
+      "task": "duplicate-duplicate-line-flip-004",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 43228,
+      "promptTokens": 3294,
+      "completionTokens": 1033,
+      "toolCalls": {
+        "bash": 4,
+        "read": 1,
+        "edit": 2
+      },
+      "toolFailures": {
+        "FsError": 1
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal-code-edit",
+      "task": "duplicate-duplicate-line-flip-005",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 28024,
+      "promptTokens": 3568,
+      "completionTokens": 729,
+      "toolCalls": {
+        "read": 1,
+        "edit": 3,
+        "bash": 2
+      },
+      "toolFailures": {
+        "FsError": 1
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal-code-edit",
+      "task": "duplicate-duplicate-line-flip-006",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 42828,
+      "promptTokens": 4013,
+      "completionTokens": 1172,
+      "toolCalls": {
+        "bash": 4,
+        "edit": 3,
+        "read": 2
+      },
+      "toolFailures": {
+        "FsError": 2
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal-code-edit",
+      "task": "identifier-identifier-multi-edit-001",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 28434,
+      "promptTokens": 2651,
+      "completionTokens": 801,
+      "toolCalls": {
+        "read": 2,
+        "bash": 1,
+        "edit": 2
+      },
+      "toolFailures": {
+        "FsError": 1
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal-code-edit",
+      "task": "identifier-identifier-multi-edit-002",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 39644,
+      "promptTokens": 2735,
+      "completionTokens": 974,
+      "toolCalls": {
+        "bash": 3,
+        "read": 1,
+        "edit": 3
+      },
+      "toolFailures": {
+        "FsError": 1
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal-code-edit",
+      "task": "identifier-identifier-multi-edit-003",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 26964,
+      "promptTokens": 1607,
+      "completionTokens": 608,
+      "toolCalls": {
+        "bash": 2,
+        "read": 1,
+        "edit": 2
+      },
+      "toolFailures": {
+        "FsError": 1
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal-code-edit",
+      "task": "identifier-identifier-multi-edit-004",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 265807,
+      "promptTokens": 8531,
+      "completionTokens": 3142,
+      "toolCalls": {
+        "bash": 14,
+        "read": 1,
+        "edit": 1
+      },
+      "toolFailures": {},
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal-code-edit",
+      "task": "identifier-identifier-multi-edit-005",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 26943,
+      "promptTokens": 3018,
+      "completionTokens": 745,
+      "toolCalls": {
+        "read": 2,
+        "edit": 2,
+        "bash": 1
+      },
+      "toolFailures": {
+        "FsError": 1
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal-code-edit",
+      "task": "identifier-identifier-multi-edit-006",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 34216,
+      "promptTokens": 2597,
+      "completionTokens": 751,
+      "toolCalls": {
+        "bash": 3,
+        "read": 1,
+        "edit": 2
+      },
+      "toolFailures": {
+        "FsError": 1
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal-code-edit",
+      "task": "identifier-identifier-multi-edit-007",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 76380,
+      "promptTokens": 5953,
+      "completionTokens": 2055,
+      "toolCalls": {
+        "bash": 6,
+        "read": 1,
+        "edit": 3
+      },
+      "toolFailures": {
+        "FsError": 2
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal-code-edit",
+      "task": "identifier-identifier-multi-edit-008",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 42135,
+      "promptTokens": 3009,
+      "completionTokens": 1134,
+      "toolCalls": {
+        "bash": 4,
+        "read": 1,
+        "edit": 4
+      },
+      "toolFailures": {
+        "FsError": 2
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal-code-edit",
+      "task": "identifier-identifier-multi-edit-009",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 35505,
+      "promptTokens": 2835,
+      "completionTokens": 782,
+      "toolCalls": {
+        "read": 1,
+        "edit": 2,
+        "bash": 2
+      },
+      "toolFailures": {
+        "FsError": 1
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal-code-edit",
+      "task": "identifier-identifier-multi-edit-010",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 59760,
+      "promptTokens": 6442,
+      "completionTokens": 1364,
+      "toolCalls": {
+        "bash": 5,
+        "read": 1,
+        "edit": 1
+      },
+      "toolFailures": {
+        "FsError": 1
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal-code-edit",
+      "task": "literal-flip-boolean-001",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 21565,
+      "promptTokens": 2261,
+      "completionTokens": 703,
+      "toolCalls": {
+        "bash": 1,
+        "read": 2,
+        "edit": 3
+      },
+      "toolFailures": {
+        "FsError": 1
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal-code-edit",
+      "task": "literal-off-by-one-001",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 26156,
+      "promptTokens": 2643,
+      "completionTokens": 705,
+      "toolCalls": {
+        "bash": 2,
+        "read": 2,
+        "edit": 2
+      },
+      "toolFailures": {
+        "FsError": 1
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal-code-edit",
+      "task": "multi-composite-multi-edit-001",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 18343,
+      "promptTokens": 2572,
+      "completionTokens": 969,
+      "toolCalls": {
+        "read": 2,
+        "edit": 6
+      },
+      "toolFailures": {
+        "FsError": 3
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal-code-edit",
+      "task": "multi-composite-multi-edit-002",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 83229,
+      "promptTokens": 8952,
+      "completionTokens": 2869,
+      "toolCalls": {
+        "read": 3,
+        "edit": 10,
+        "bash": 5
+      },
+      "toolFailures": {
+        "FsError": 5
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal-code-edit",
+      "task": "multi-composite-multi-edit-003",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 73686,
+      "promptTokens": 9041,
+      "completionTokens": 1854,
+      "toolCalls": {
+        "bash": 5,
+        "read": 1,
+        "edit": 6
+      },
+      "toolFailures": {
+        "FsError": 3
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal-code-edit",
+      "task": "multi-composite-multi-edit-004",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 48310,
+      "promptTokens": 6645,
+      "completionTokens": 1471,
+      "toolCalls": {
+        "bash": 2,
+        "read": 2,
+        "edit": 6
+      },
+      "toolFailures": {
+        "FsError": 3
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal-code-edit",
+      "task": "multi-composite-multi-edit-005",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 17025,
+      "promptTokens": 2961,
+      "completionTokens": 876,
+      "toolCalls": {
+        "read": 2,
+        "edit": 4
+      },
+      "toolFailures": {
+        "FsError": 2
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal-code-edit",
+      "task": "multi-composite-multi-edit-006",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 54806,
+      "promptTokens": 6025,
+      "completionTokens": 1456,
+      "toolCalls": {
+        "bash": 6,
+        "read": 1,
+        "edit": 4
+      },
+      "toolFailures": {
+        "FsError": 2
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal-code-edit",
+      "task": "multi-composite-multi-edit-007",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 72547,
+      "promptTokens": 9080,
+      "completionTokens": 2189,
+      "toolCalls": {
+        "bash": 3,
+        "read": 1,
+        "edit": 5
+      },
+      "toolFailures": {},
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal-code-edit",
+      "task": "multi-composite-multi-edit-008",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 60706,
+      "promptTokens": 4159,
+      "completionTokens": 1886,
+      "toolCalls": {
+        "bash": 4,
+        "read": 3,
+        "edit": 6
+      },
+      "toolFailures": {
+        "FsError": 3
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal-code-edit",
+      "task": "multi-composite-multi-edit-009",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 34622,
+      "promptTokens": 2955,
+      "completionTokens": 967,
+      "toolCalls": {
+        "bash": 2,
+        "read": 2,
+        "edit": 4
+      },
+      "toolFailures": {
+        "FsError": 2
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal-code-edit",
+      "task": "multi-composite-multi-edit-010",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 50824,
+      "promptTokens": 6366,
+      "completionTokens": 1325,
+      "toolCalls": {
+        "bash": 3,
+        "read": 1,
+        "edit": 6
+      },
+      "toolFailures": {
+        "FsError": 3
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal-code-edit",
+      "task": "multi-composite-multi-edit-011",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 75794,
+      "promptTokens": 7750,
+      "completionTokens": 2380,
+      "toolCalls": {
+        "bash": 2,
+        "read": 2,
+        "edit": 7
+      },
+      "toolFailures": {
+        "FsError": 4
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal-code-edit",
+      "task": "multi-composite-multi-edit-012",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 146701,
+      "promptTokens": 7458,
+      "completionTokens": 1842,
+      "toolCalls": {
+        "bash": 4,
+        "read": 1,
+        "edit": 8
+      },
+      "toolFailures": {
+        "FsError": 4
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal-code-edit",
+      "task": "multi-composite-multi-edit-013",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 51020,
+      "promptTokens": 5636,
+      "completionTokens": 2312,
+      "toolCalls": {
+        "read": 2,
+        "edit": 3,
+        "bash": 1
+      },
+      "toolFailures": {
+        "FsError": 2
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal-code-edit",
+      "task": "multi-composite-multi-edit-014",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 49700,
+      "promptTokens": 6139,
+      "completionTokens": 1653,
+      "toolCalls": {
+        "bash": 3,
+        "read": 1,
+        "edit": 8
+      },
+      "toolFailures": {
+        "FsError": 4
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal-code-edit",
+      "task": "multi-composite-multi-edit-015",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 101352,
+      "promptTokens": 16294,
+      "completionTokens": 2377,
+      "toolCalls": {
+        "bash": 6,
+        "read": 1,
+        "edit": 8
+      },
+      "toolFailures": {
+        "FsError": 4
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal-code-edit",
+      "task": "multi-composite-multi-edit-016",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 53014,
+      "promptTokens": 8176,
+      "completionTokens": 1182,
+      "toolCalls": {
+        "bash": 3,
+        "read": 1,
+        "edit": 4
+      },
+      "toolFailures": {
+        "FsError": 2
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal-code-edit",
+      "task": "operator-remove-negation-001",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 30261,
+      "promptTokens": 2640,
+      "completionTokens": 825,
+      "toolCalls": {
+        "read": 1,
+        "edit": 3,
+        "bash": 2
+      },
+      "toolFailures": {
+        "FsError": 2
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal-code-edit",
+      "task": "operator-swap-arithmetic-001",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 52876,
+      "promptTokens": 4550,
+      "completionTokens": 1395,
+      "toolCalls": {
+        "bash": 4,
+        "read": 1,
+        "edit": 3
+      },
+      "toolFailures": {
+        "FsError": 2
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal-code-edit",
+      "task": "operator-swap-comparison-001",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 56052,
+      "promptTokens": 4083,
+      "completionTokens": 1572,
+      "toolCalls": {
+        "bash": 6,
+        "edit": 4,
+        "read": 1
+      },
+      "toolFailures": {
+        "FsError": 2
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal-code-edit",
+      "task": "operator-swap-equality-001",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 22837,
+      "promptTokens": 1907,
+      "completionTokens": 711,
+      "toolCalls": {
+        "read": 2,
+        "edit": 2,
+        "bash": 1
+      },
+      "toolFailures": {
+        "FsError": 1
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal-code-edit",
+      "task": "operator-swap-increment-decrement-001",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 31762,
+      "promptTokens": 2499,
+      "completionTokens": 878,
+      "toolCalls": {
+        "bash": 2,
+        "read": 2,
+        "edit": 3
+      },
+      "toolFailures": {
+        "FsError": 1
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal-code-edit",
+      "task": "operator-swap-logical-001",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 34557,
+      "promptTokens": 2411,
+      "completionTokens": 787,
+      "toolCalls": {
+        "bash": 3,
+        "read": 1,
+        "edit": 3
+      },
+      "toolFailures": {
+        "FsError": 1
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal-code-edit",
+      "task": "operator-swap-nullish-001",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 33432,
+      "promptTokens": 2081,
+      "completionTokens": 683,
+      "toolCalls": {
+        "bash": 3,
+        "read": 1,
+        "edit": 2
+      },
+      "toolFailures": {
+        "FsError": 1
+      },
+      "filesChecked": 1
+    }
+  ]
+}

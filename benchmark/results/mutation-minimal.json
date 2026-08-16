@@ -1,0 +1,685 @@
+{
+  "preset": "minimal",
+  "model": "deepseek-v4-flash-0731",
+  "tasksRun": 41,
+  "passed": 41,
+  "passRate": 1,
+  "totalDurationMs": 3201713,
+  "aggregates": {
+    "promptTokens": 193865,
+    "completionTokens": 50759,
+    "toolCalls": {
+      "str_replace_editor": 166,
+      "bash": 189
+    },
+    "toolFailures": {
+      "FsError": 53
+    }
+  },
+  "results": [
+    {
+      "preset": "minimal",
+      "task": "duplicate-duplicate-line-flip-001",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 156729,
+      "promptTokens": 4531,
+      "completionTokens": 1634,
+      "toolCalls": {
+        "str_replace_editor": 4,
+        "bash": 7
+      },
+      "toolFailures": {
+        "FsError": 2
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal",
+      "task": "duplicate-duplicate-line-flip-002",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 120102,
+      "promptTokens": 3701,
+      "completionTokens": 785,
+      "toolCalls": {
+        "bash": 4,
+        "str_replace_editor": 3
+      },
+      "toolFailures": {
+        "FsError": 1
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal",
+      "task": "duplicate-duplicate-line-flip-003",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 43550,
+      "promptTokens": 2747,
+      "completionTokens": 918,
+      "toolCalls": {
+        "bash": 4,
+        "str_replace_editor": 3
+      },
+      "toolFailures": {
+        "FsError": 1
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal",
+      "task": "duplicate-duplicate-line-flip-004",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 51597,
+      "promptTokens": 4022,
+      "completionTokens": 1218,
+      "toolCalls": {
+        "bash": 5,
+        "str_replace_editor": 3
+      },
+      "toolFailures": {
+        "FsError": 1
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal",
+      "task": "duplicate-duplicate-line-flip-005",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 114099,
+      "promptTokens": 3943,
+      "completionTokens": 767,
+      "toolCalls": {
+        "str_replace_editor": 3,
+        "bash": 3
+      },
+      "toolFailures": {
+        "FsError": 1
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal",
+      "task": "duplicate-duplicate-line-flip-006",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 127923,
+      "promptTokens": 4219,
+      "completionTokens": 1198,
+      "toolCalls": {
+        "bash": 4,
+        "str_replace_editor": 5
+      },
+      "toolFailures": {
+        "FsError": 3
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal",
+      "task": "identifier-identifier-multi-edit-001",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 36405,
+      "promptTokens": 2768,
+      "completionTokens": 634,
+      "toolCalls": {
+        "bash": 4,
+        "str_replace_editor": 2
+      },
+      "toolFailures": {
+        "FsError": 1
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal",
+      "task": "identifier-identifier-multi-edit-002",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 53571,
+      "promptTokens": 4612,
+      "completionTokens": 678,
+      "toolCalls": {
+        "bash": 7
+      },
+      "toolFailures": {},
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal",
+      "task": "identifier-identifier-multi-edit-003",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 123099,
+      "promptTokens": 8596,
+      "completionTokens": 546,
+      "toolCalls": {
+        "bash": 5
+      },
+      "toolFailures": {},
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal",
+      "task": "identifier-identifier-multi-edit-004",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 53673,
+      "promptTokens": 4241,
+      "completionTokens": 691,
+      "toolCalls": {
+        "bash": 6
+      },
+      "toolFailures": {},
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal",
+      "task": "identifier-identifier-multi-edit-005",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 118353,
+      "promptTokens": 3243,
+      "completionTokens": 806,
+      "toolCalls": {
+        "bash": 4,
+        "str_replace_editor": 2
+      },
+      "toolFailures": {},
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal",
+      "task": "identifier-identifier-multi-edit-006",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 50155,
+      "promptTokens": 4136,
+      "completionTokens": 760,
+      "toolCalls": {
+        "bash": 6
+      },
+      "toolFailures": {},
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal",
+      "task": "identifier-identifier-multi-edit-007",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 43412,
+      "promptTokens": 5768,
+      "completionTokens": 664,
+      "toolCalls": {
+        "bash": 5
+      },
+      "toolFailures": {},
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal",
+      "task": "identifier-identifier-multi-edit-008",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 25872,
+      "promptTokens": 1748,
+      "completionTokens": 414,
+      "toolCalls": {
+        "bash": 3
+      },
+      "toolFailures": {},
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal",
+      "task": "identifier-identifier-multi-edit-009",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 26391,
+      "promptTokens": 1654,
+      "completionTokens": 316,
+      "toolCalls": {
+        "bash": 3
+      },
+      "toolFailures": {},
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal",
+      "task": "identifier-identifier-multi-edit-010",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 132738,
+      "promptTokens": 3689,
+      "completionTokens": 1040,
+      "toolCalls": {
+        "bash": 5,
+        "str_replace_editor": 3
+      },
+      "toolFailures": {
+        "FsError": 1
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal",
+      "task": "literal-flip-boolean-001",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 32642,
+      "promptTokens": 1731,
+      "completionTokens": 607,
+      "toolCalls": {
+        "bash": 3,
+        "str_replace_editor": 3
+      },
+      "toolFailures": {
+        "FsError": 1
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal",
+      "task": "literal-off-by-one-001",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 171398,
+      "promptTokens": 8531,
+      "completionTokens": 3892,
+      "toolCalls": {
+        "bash": 14,
+        "str_replace_editor": 4
+      },
+      "toolFailures": {
+        "FsError": 2
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal",
+      "task": "multi-composite-multi-edit-001",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 48046,
+      "promptTokens": 3614,
+      "completionTokens": 1370,
+      "toolCalls": {
+        "bash": 3,
+        "str_replace_editor": 7
+      },
+      "toolFailures": {
+        "FsError": 3
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal",
+      "task": "multi-composite-multi-edit-002",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 82803,
+      "promptTokens": 10874,
+      "completionTokens": 2614,
+      "toolCalls": {
+        "bash": 8,
+        "str_replace_editor": 11
+      },
+      "toolFailures": {
+        "FsError": 5
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal",
+      "task": "multi-composite-multi-edit-003",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 46441,
+      "promptTokens": 5423,
+      "completionTokens": 1091,
+      "toolCalls": {
+        "bash": 3,
+        "str_replace_editor": 5
+      },
+      "toolFailures": {
+        "FsError": 1
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal",
+      "task": "multi-composite-multi-edit-004",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 131326,
+      "promptTokens": 6643,
+      "completionTokens": 1192,
+      "toolCalls": {
+        "bash": 3,
+        "str_replace_editor": 5
+      },
+      "toolFailures": {},
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal",
+      "task": "multi-composite-multi-edit-005",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 32597,
+      "promptTokens": 2968,
+      "completionTokens": 830,
+      "toolCalls": {
+        "str_replace_editor": 5,
+        "bash": 2
+      },
+      "toolFailures": {
+        "FsError": 1
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal",
+      "task": "multi-composite-multi-edit-006",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 28542,
+      "promptTokens": 4136,
+      "completionTokens": 636,
+      "toolCalls": {
+        "bash": 2,
+        "str_replace_editor": 3
+      },
+      "toolFailures": {},
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal",
+      "task": "multi-composite-multi-edit-007",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 70321,
+      "promptTokens": 8657,
+      "completionTokens": 2138,
+      "toolCalls": {
+        "bash": 3,
+        "str_replace_editor": 11
+      },
+      "toolFailures": {},
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal",
+      "task": "multi-composite-multi-edit-008",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 69349,
+      "promptTokens": 4579,
+      "completionTokens": 1869,
+      "toolCalls": {
+        "bash": 7,
+        "str_replace_editor": 8
+      },
+      "toolFailures": {
+        "FsError": 4
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal",
+      "task": "multi-composite-multi-edit-009",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 153025,
+      "promptTokens": 5482,
+      "completionTokens": 1953,
+      "toolCalls": {
+        "str_replace_editor": 6,
+        "bash": 6
+      },
+      "toolFailures": {
+        "FsError": 3
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal",
+      "task": "multi-composite-multi-edit-010",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 59366,
+      "promptTokens": 6492,
+      "completionTokens": 1569,
+      "toolCalls": {
+        "bash": 5,
+        "str_replace_editor": 6
+      },
+      "toolFailures": {
+        "FsError": 2
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal",
+      "task": "multi-composite-multi-edit-011",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 29353,
+      "promptTokens": 5181,
+      "completionTokens": 1076,
+      "toolCalls": {
+        "bash": 1,
+        "str_replace_editor": 5
+      },
+      "toolFailures": {},
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal",
+      "task": "multi-composite-multi-edit-012",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 103992,
+      "promptTokens": 11629,
+      "completionTokens": 3474,
+      "toolCalls": {
+        "bash": 9,
+        "str_replace_editor": 7
+      },
+      "toolFailures": {},
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal",
+      "task": "multi-composite-multi-edit-013",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 111253,
+      "promptTokens": 4038,
+      "completionTokens": 1119,
+      "toolCalls": {
+        "str_replace_editor": 4,
+        "bash": 2
+      },
+      "toolFailures": {
+        "FsError": 1
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal",
+      "task": "multi-composite-multi-edit-014",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 143598,
+      "promptTokens": 8194,
+      "completionTokens": 2340,
+      "toolCalls": {
+        "bash": 5,
+        "str_replace_editor": 9
+      },
+      "toolFailures": {
+        "FsError": 4
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal",
+      "task": "multi-composite-multi-edit-015",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 159287,
+      "promptTokens": 7450,
+      "completionTokens": 2533,
+      "toolCalls": {
+        "bash": 8,
+        "str_replace_editor": 9
+      },
+      "toolFailures": {
+        "FsError": 4
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal",
+      "task": "multi-composite-multi-edit-016",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 52292,
+      "promptTokens": 5887,
+      "completionTokens": 1650,
+      "toolCalls": {
+        "bash": 5,
+        "str_replace_editor": 8
+      },
+      "toolFailures": {
+        "FsError": 4
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal",
+      "task": "operator-remove-negation-001",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 35490,
+      "promptTokens": 2274,
+      "completionTokens": 859,
+      "toolCalls": {
+        "bash": 3,
+        "str_replace_editor": 3
+      },
+      "toolFailures": {
+        "FsError": 1
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal",
+      "task": "operator-swap-arithmetic-001",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 115702,
+      "promptTokens": 2883,
+      "completionTokens": 826,
+      "toolCalls": {
+        "bash": 4,
+        "str_replace_editor": 3
+      },
+      "toolFailures": {
+        "FsError": 1
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal",
+      "task": "operator-swap-comparison-001",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 108572,
+      "promptTokens": 2825,
+      "completionTokens": 661,
+      "toolCalls": {
+        "str_replace_editor": 3,
+        "bash": 3
+      },
+      "toolFailures": {
+        "FsError": 1
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal",
+      "task": "operator-swap-equality-001",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 38897,
+      "promptTokens": 2674,
+      "completionTokens": 864,
+      "toolCalls": {
+        "bash": 5,
+        "str_replace_editor": 3
+      },
+      "toolFailures": {
+        "FsError": 1
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal",
+      "task": "operator-swap-increment-decrement-001",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 34479,
+      "promptTokens": 2642,
+      "completionTokens": 903,
+      "toolCalls": {
+        "bash": 3,
+        "str_replace_editor": 4
+      },
+      "toolFailures": {
+        "FsError": 1
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal",
+      "task": "operator-swap-logical-001",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 35157,
+      "promptTokens": 2899,
+      "completionTokens": 833,
+      "toolCalls": {
+        "bash": 4,
+        "str_replace_editor": 3
+      },
+      "toolFailures": {
+        "FsError": 1
+      },
+      "filesChecked": 1
+    },
+    {
+      "preset": "minimal",
+      "task": "operator-swap-nullish-001",
+      "pass": true,
+      "reason": "completed",
+      "durationMs": 30116,
+      "promptTokens": 2541,
+      "completionTokens": 791,
+      "toolCalls": {
+        "bash": 3,
+        "str_replace_editor": 3
+      },
+      "toolFailures": {
+        "FsError": 1
+      },
+      "filesChecked": 1
+    }
+  ]
+}
