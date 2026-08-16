@@ -1,0 +1,49 @@
+# @hy-sde/dsh-tool-edit — a self-contained filesystem + rich-edit surface.
+#
+# The plugin brings its OWN fs realm: `ctx.fs` is not mounted host-wide in
+# DeepSeek Harness (presets own local filesystem discovery), so these rows
+# make the deployment self-sufficient — `read`/`write` plus the rich `edit`
+# tool. The realm is isolated like a preset's filesystem group so the
+# read/write tools and the edit tool share one fs instance and one
+# observation ledger.
+#
+# All row ids carry the `hy-sde-` prefix to avoid clashing with any shipped
+# row of the same name (a duplicate loader id fails the boot).
+#
+# Override per deployment (e.g. set the working directory root) by patching
+# the row by id:
+#
+#   - id: hy-sde-fs-local
+#     config:
+#       cwd: /path/to/workspace
+#
+# Or keep configuration where you already set it. The `edit` tool can be
+# reached in any mode the config selects; see the package README.
+- insert:
+    - id: hy-sde-edit-fs
+      name: cordis:group
+      group: true
+      isolate:
+        fs: true
+      config:
+        - id: hy-sde-fs-local
+          name: '@deepseek-ai/dsh-fs-local'
+          config:
+            cwd: !!js process.env.DSH_CWD ?? process.cwd()
+
+        - id: hy-sde-tool-fs
+          name: '@deepseek-ai/dsh-tool-fs'
+          config:
+            # The rich tool below IS the editor; keep the suite's own `edit`
+            # row out so there is exactly one edit tool.
+            enableEdit: false
+
+        - id: hy-sde-tool-edit
+          name: '@hy-sde/dsh-tool-edit'
+          config:
+            mode: auto
+            fuzzyMatch: true
+            fuzzyThreshold: 0.95
+            formatOnWrite: true
+            diagnosticsOnEdit: true
+            diagnosticsDeduplicate: true
