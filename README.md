@@ -18,6 +18,18 @@ and it bundles its **own LSP client**, so `formatOnWrite` and
 upstream changes** (the language server runs via `npx
 typescript-language-server` and degrades to edit-only when unavailable).
 
+**Why this exists.** For coding agents, much of the leverage is in the
+harness, not the model — the "harness problem" [Stencil So][stencil] frames
+well: the tool surface (how a model reads, edits, and is shown errors) often
+bounds reliability more than the model does. This plugin is harness work: a
+better edit tool with a built-in language server, shipped as an installable
+plugin. The [benchmark section][benchmark] records the A/B run that measures
+it against the harness's built-in `str_replace_editor`, so the "it's better"
+claim is evidenced, not asserted.
+
+[stencil]: https://stencil.so/blog/the-harness-problem
+[benchmark]: benchmark/README.md
+
 ## Install
 
 ```bash
