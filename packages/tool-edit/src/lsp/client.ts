@@ -6,7 +6,7 @@
  *
  * All public operations degrade instead of throw when the server is
  * unavailable: callers observe `undefined` and continue with edit-only.
- * @module @hy-sde/dsh-tool-edit/lsp
+ * @module @hy-sde-org/dsh-tool-edit/lsp
  */
 
 import type { LspMessage, StdioLspProcess } from './stdio.ts'

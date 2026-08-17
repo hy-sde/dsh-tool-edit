@@ -13,7 +13,7 @@
  * original so a native resolver can drop in here without touching the patcher.
  * Ported from @oh-my-pi/pi-coding-agent (https://github.com/can1357/oh-my-pi). MIT License. Copyright (c) 2025 Mario Zechner, Copyright (c) 2025-2026 Can Bölük.
  */
-import type { BlockResolver } from '@hy-sde/dsh-hashline'
+import type { BlockResolver } from '@hy-sde-org/dsh-hashline'
 
 /** The exported block resolver stub used by the hashline executor. */
 export const nativeBlockResolver: BlockResolver = () => null

@@ -5,8 +5,8 @@ Harness CLI:
 
 | package | role | installed by users? |
 |---|---|---|
-| `@hy-sde/dsh-hashline` | pure line-anchored edit-patch engine (library) | no — transitive |
-| `@hy-sde/dsh-tool-edit` | the plugin: `edit` tool (replace / patch / apply_patch / hashline) + embedded format-on-write & diagnostics | yes |
+| `@hy-sde-org/dsh-hashline` | pure line-anchored edit-patch engine (library) | no — transitive |
+| `@hy-sde-org/dsh-tool-edit` | the plugin: `edit` tool (replace / patch / apply_patch / hashline) + embedded format-on-write & diagnostics | yes |
 
 The `edit` tool is a full parity port of oh-my-pi's coding-agent edit tool
 onto the harness tool/filesystem contract (`ctx.tools`, `ctx.fs`,
@@ -40,12 +40,12 @@ The packages are released as npm tarballs. **Once published**, install the
 plugin and its library resolves automatically:
 
 ```bash
-dsh plugin --profile web add @hy-sde/dsh-tool-edit
+dsh plugin --profile web add @hy-sde-org/dsh-tool-edit
 ```
 
 **Before publishing**, install from the built tarballs — and pin the
 unpublished dependency so `pnpm add` doesn't query the registry for
-`@hy-sde/dsh-hashline`:
+`@hy-sde-org/dsh-hashline`:
 
 ```bash
 git clone git@github.com:hy-sde/dsh-tool-edit.git
@@ -57,7 +57,7 @@ HASHLINE_TGZ="$(cd packages/hashline && pnpm pack --silent --pack-destination /t
 dsh plugin --profile web add "$HASHLINE_TGZ"
 
 # Pin hashline locally so the tool-edit tarball's dependency resolves offline.
-printf 'overrides:\n  "@hy-sde/dsh-hashline": "file:%s/packages/hashline"\n' "$PWD" >> "$DSH_HOME/profiles/web/pnpm-workspace.yaml"
+printf 'overrides:\n  "@hy-sde-org/dsh-hashline": "file:%s/packages/hashline"\n' "$PWD" >> "$DSH_HOME/profiles/web/pnpm-workspace.yaml"
 
 TOOLEDIT_TGZ="$(cd packages/tool-edit && pnpm pack --silent --pack-destination /tmp)"
 dsh plugin --profile web add "$TOOLEDIT_TGZ"
@@ -68,7 +68,7 @@ real publish.)
 
 > **Install order note:** don't try to satisfy the dependency by installing the
 > hashline tarball "first" — pnpm re-resolves the full graph on every `add`
-> and will 404 on an unpublished `@hy-sde/dsh-hashline` unless the override
+> and will 404 on an unpublished `@hy-sde-org/dsh-hashline` unless the override
 > above pins it.
 
 ### Verify
@@ -80,8 +80,8 @@ dsh web --dump-config   # look for the hy-sde-edit-fs group rows
 ### Uninstall
 
 ```bash
-dsh plugin --profile web remove @hy-sde/dsh-tool-edit
-dsh plugin --profile web remove @hy-sde/dsh-hashline
+dsh plugin --profile web remove @hy-sde-org/dsh-tool-edit
+dsh plugin --profile web remove @hy-sde-org/dsh-hashline
 ```
 
 > **Already shipped?** If a future DeepSeek Harness release adopts a rich
@@ -108,7 +108,7 @@ cannot collide with shipped rows:
   - `hy-sde-fs-local` — `@deepseek-ai/dsh-fs-local` (cwd: `DSH_CWD` or the
     harness process cwd; override by patching this row with your workspace)
   - `hy-sde-tool-fs` — `@deepseek-ai/dsh-tool-fs` with `enableEdit: false`
-  - `hy-sde-tool-edit` — `@hy-sde/dsh-tool-edit` (the rich editor)
+  - `hy-sde-tool-edit` — `@hy-sde-org/dsh-tool-edit` (the rich editor)
 
 Configure per deployment by patching the rows by id, e.g.:
 
@@ -163,8 +163,8 @@ bash scripts/release-public.sh --publish    # publish hashline then tool-edit
 ## Layout
 
 ```
-packages/hashline/    @hy-sde/dsh-hashline — the engine (no runtime deps)
-packages/tool-edit/   @hy-sde/dsh-tool-edit — the plugin (embedds the LSP client)
+packages/hashline/    @hy-sde-org/dsh-hashline — the engine (no runtime deps)
+packages/tool-edit/   @hy-sde-org/dsh-tool-edit — the plugin (embedds the LSP client)
   cordis.patch.yml    the installable harness bundle
   src/lsp/            embedded client: stdio framing, LSP client, provider,
                       writethrough (port of oh-my-pi's lsp writethrough)

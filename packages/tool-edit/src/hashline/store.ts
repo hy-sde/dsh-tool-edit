@@ -7,7 +7,7 @@
  * reads in one call fuse onto the tags a later call's edits verify against.
  * Ported from @oh-my-pi/pi-coding-agent (https://github.com/can1357/oh-my-pi). MIT License. Copyright (c) 2025 Mario Zechner, Copyright (c) 2025-2026 Can Bölük.
  */
-import { InMemorySnapshotStore, SnapshotStore } from '@hy-sde/dsh-hashline'
+import { InMemorySnapshotStore, SnapshotStore } from '@hy-sde-org/dsh-hashline'
 
 /** WeakMap keyed by the stable agent Session object (never prevents GC). */
 const storeBySession = new WeakMap<object, InMemorySnapshotStore>()

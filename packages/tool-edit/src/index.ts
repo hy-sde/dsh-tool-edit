@@ -25,7 +25,7 @@ import {
 } from './constants.ts'
 import { fileDiffsFromMeta, type FileDiff } from './details.ts'
 import { ApplyPatchError } from './diff.ts'
-import { containsRecognizableHashlineOperations } from '@hy-sde/dsh-hashline'
+import { containsRecognizableHashlineOperations } from '@hy-sde-org/dsh-hashline'
 import { executeHashlineSingle } from './hashline/execute.ts'
 import { executePatchEntry, type PatchEditEntry } from './patch.ts'
 import { expandApplyPatchToEntries } from './apply-patch.ts'

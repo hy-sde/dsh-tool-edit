@@ -8,7 +8,7 @@
  * Degradation contract: every method resolves `undefined` instead of throwing
  * when the language server is unavailable, disabled, or failed. The
  * writethrough layer already treats `undefined` as pass-through.
- * @module @hy-sde/dsh-tool-edit/lsp
+ * @module @hy-sde-org/dsh-tool-edit/lsp
  */
 
 import { TextDocumentLspClient, type EditLspDiagnostic } from './client.ts'

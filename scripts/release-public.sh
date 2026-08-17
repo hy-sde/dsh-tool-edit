@@ -33,8 +33,8 @@ for dir in "${packages[@]}"; do
     exit 1
   fi
   package_name="$(node -p "require('./$dir/package.json').name")"
-  if [[ "$package_name" != @hy-sde/* ]]; then
-    echo "release refused: unexpected package name $package_name (expected @hy-sde/*)" >&2
+  if [[ "$package_name" != @hy-sde-org/* ]]; then
+    echo "release refused: unexpected package name $package_name (expected @hy-sde-org/*)" >&2
     exit 1
   fi
 done
@@ -64,7 +64,7 @@ if ! npm whoami --registry "$registry" >/dev/null 2>&1; then
   echo "release refused: run npm login for $registry first" >&2
   exit 1
 fi
-if ! npm org ls hy-sde --json --registry "$registry" >/dev/null 2>&1; then
+if ! npm org ls hy-sde-org --json --registry "$registry" >/dev/null 2>&1; then
   echo "release refused: the npm user is not a member of the hy-sde organization" >&2
   exit 1
 fi
@@ -95,4 +95,4 @@ fi
 
 (cd packages/hashline && npm publish --access public --registry "$registry")
 (cd packages/tool-edit && npm publish --access public --registry "$registry")
-echo "published both @hy-sde packages"
+echo "published both @hy-sde-org packages"

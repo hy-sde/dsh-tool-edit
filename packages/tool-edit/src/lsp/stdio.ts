@@ -7,7 +7,7 @@
  * is intentionally NOT consumed here: a plugin must not depend on methods
  * that only an extended harness build exposes. This tiny client speaks the
  * Language Server Protocol directly over stdin/stdout.
- * @module @hy-sde/dsh-tool-edit/lsp
+ * @module @hy-sde-org/dsh-tool-edit/lsp
  */
 
 import { spawn, type ChildProcess } from 'node:child_process'

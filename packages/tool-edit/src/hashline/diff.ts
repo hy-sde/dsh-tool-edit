@@ -26,7 +26,7 @@ import {
   type SnapshotStore,
   stripBom,
   validateClipboardSequence,
-} from '@hy-sde/dsh-hashline'
+} from '@hy-sde-org/dsh-hashline'
 import { generateDiffString } from '../diff.ts'
 import type { FileReader } from '../session.ts'
 import { nativeBlockResolver } from './block-resolver.ts'

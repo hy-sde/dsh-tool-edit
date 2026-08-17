@@ -1,4 +1,4 @@
-# @hy-sde/dsh-tool-edit — a self-contained filesystem + rich-edit surface.
+# @hy-sde-org/dsh-tool-edit — a self-contained filesystem + rich-edit surface.
 #
 # The plugin brings its OWN fs realm: `ctx.fs` is not mounted host-wide in
 # DeepSeek Harness (presets own local filesystem discovery), so these rows
@@ -39,7 +39,7 @@
             enableEdit: false
 
         - id: hy-sde-tool-edit
-          name: '@hy-sde/dsh-tool-edit'
+          name: '@hy-sde-org/dsh-tool-edit'
           config:
             mode: auto
             fuzzyMatch: true

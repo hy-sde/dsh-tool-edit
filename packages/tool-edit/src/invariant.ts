@@ -1,13 +1,13 @@
 /**
- * Package-owned invariant companion for `@hy-sde/dsh-tool-edit`.
- * @module @hy-sde/dsh-tool-edit/invariant
+ * Package-owned invariant companion for `@hy-sde-org/dsh-tool-edit`.
+ * @module @hy-sde-org/dsh-tool-edit/invariant
  */
 
 /* jscpd:ignore-start */
 import type { Context } from '@deepseek-ai/cordis'
 import type { InvariantInstaller } from '@deepseek-ai/dsh-invariants'
 
-const PACKAGE_NAME = '@hy-sde/dsh-tool-edit'
+const PACKAGE_NAME = '@hy-sde-org/dsh-tool-edit'
 
 /** Cordis companion plugin name. */
 export const name = 'tool-edit-invariant'

@@ -1,4 +1,4 @@
-# @hy-sde/dsh-hashline
+# @hy-sde-org/dsh-hashline
 
 Line-anchored edit-patch engine (hashline) ported from oh-my-pi. Zero runtime dependencies. See the repository root README for the full story: https://github.com/hy-sde/dsh-tool-edit#readme
 

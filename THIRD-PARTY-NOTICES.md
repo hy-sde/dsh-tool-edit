@@ -9,9 +9,9 @@ attribution in its header; this notice aggregates the provenance.
 - **Project**: https://github.com/can1357/oh-my-pi (MIT License)
 - **Copyright**: Copyright (c) 2025 Mario Zechner, Copyright (c) 2025-2026 Can Bölük
 - **Derived modules**:
-  - `@hy-sde/dsh-hashline` — the hashline line-anchored patch engine
+  - `@hy-sde-org/dsh-hashline` — the hashline line-anchored patch engine
     (parser, patcher, recovery, block resolution, format v2).
-  - `@hy-sde/dsh-tool-edit` — the rich `edit` tool (replace / patch /
+  - `@hy-sde-org/dsh-tool-edit` — the rich `edit` tool (replace / patch /
     apply_patch / hashline modes), the LSP write-through callback, and the
     edit-session adapter of the original coding agent's tool surface.
 
@@ -48,12 +48,12 @@ peer dependencies, not copied source.
 
 ## Runtime dependency surface (not copied)
 
-`@hy-sde/dsh-tool-edit` depends at runtime on:
+`@hy-sde-org/dsh-tool-edit` depends at runtime on:
 
 | package | license |
 |---|---|
 | @deepseek-ai/schemastery | MIT |
-| @hy-sde/dsh-hashline | MIT (this repo) |
+| @hy-sde-org/dsh-hashline | MIT (this repo) |
 
 and declares peer dependencies on the published DeepSeek Harness packages
 (`@deepseek-ai/cordis`, `dsh-tools`, `dsh-fs`, `dsh-fs-local`,
