@@ -93,6 +93,9 @@ if [[ "$answer" != "y" && "$answer" != "Y" ]]; then
   exit 1
 fi
 
-(cd packages/hashline && npm publish --access public --registry "$registry")
-(cd packages/tool-edit && npm publish --access public --registry "$registry")
+# publish via pnpm, NOT npm: pnpm rewrites workspace:* dependency specs to
+# their published ranges; raw `npm publish` leaks `workspace:^` into the
+# tarball (that broke @hy-sde-org/dsh-tool-edit@0.1.0-rc.5)
+(cd packages/hashline && pnpm publish --access public --registry "$registry" --no-git-checks)
+(cd packages/tool-edit && pnpm publish --access public --registry "$registry" --no-git-checks)
 echo "published both @hy-sde-org packages"
