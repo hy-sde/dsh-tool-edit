@@ -28,7 +28,7 @@ importers:
       '@deepseek-ai/schemastery':
         specifier: 3.18.1
         version: 3.18.1
-      '@hy-sde/dsh-hashline':
+      '@hy-sde-org/dsh-hashline':
         specifier: workspace:^
         version: link:../hashline
     devDependencies:

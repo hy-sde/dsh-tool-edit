@@ -21,11 +21,11 @@ import {
   NotFoundError,
   type PreflightWriteOptions,
   type WriteResult,
-} from '@hy-sde/dsh-hashline'
+} from '@hy-sde-org/dsh-hashline'
 import { isPathInsideCwd } from '../session.ts'
 import type { EditDiagnosticsResult } from '../lsp/writethrough.ts'
 import type { EditSession, FileReader } from '../session.ts'
-import type { SnapshotStore } from '@hy-sde/dsh-hashline'
+import type { SnapshotStore } from '@hy-sde-org/dsh-hashline'
 
 export interface HashlineFilesystemOptions {
   session: EditSession

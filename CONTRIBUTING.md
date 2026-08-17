@@ -5,9 +5,9 @@ monorepo; keep it that way.
 
 ## Ground rules
 
-- **No new runtime dependencies** for `@hy-sde/dsh-hashline` (it must stay a
+- **No new runtime dependencies** for `@hy-sde-org/dsh-hashline` (it must stay a
   zero-import engine) and no new `@deepseek-ai` dependencies for
-  `@hy-sde/dsh-tool-edit` beyond its declared peers. Runtime Node builtins
+  `@hy-sde-org/dsh-tool-edit` beyond its declared peers. Runtime Node builtins
   are fine (the host runs Node).
 - **The embedded LSP client must stay standalone.** Never re-introduce the
   harness `ctx.lsp` seam (`@deepseek-ai/dsh-lsp`) as a hard dependency — the
@@ -34,4 +34,4 @@ monorepo; keep it that way.
 Release authority lives with the maintainers. The flow is guarded by
 `scripts/release-public.sh` (clean tree, checks, tests, build, pack, org
 membership, absence check, interactive confirm). Publish order is pinned:
-`@hy-sde/dsh-hashline` first, then `@hy-sde/dsh-tool-edit`.
+`@hy-sde-org/dsh-hashline` first, then `@hy-sde-org/dsh-tool-edit`.

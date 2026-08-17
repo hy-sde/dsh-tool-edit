@@ -1,5 +1,5 @@
 {
-  "name": "@hy-sde/dsh-tool-edit",
+  "name": "@hy-sde-org/dsh-tool-edit",
   "version": "0.1.0-rc.5",
   "description": "The rich `edit` tool for DeepSeek Harness (replace / patch / apply_patch / hashline modes) with embedded format-on-write and diagnostics — a standalone plugin with no upstream harness changes required.",
   "type": "module",
@@ -47,7 +47,7 @@
     }
   },
   "dependencies": {
-    "@hy-sde/dsh-hashline": "workspace:^",
+    "@hy-sde-org/dsh-hashline": "workspace:^",
     "@deepseek-ai/schemastery": "3.18.1"
   },
   "peerDependencies": {

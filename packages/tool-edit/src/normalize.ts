@@ -2,7 +2,7 @@
  * Text normalization utilities for the edit tool.
  *
  * Whitespace, Unicode, and indentation helpers. Line-ending and BOM
- * primitives come from `@hy-sde/dsh-hashline` and are re-exported here
+ * primitives come from `@hy-sde-org/dsh-hashline` and are re-exported here
  * so consumers see one stable surface.
  * Ported from @oh-my-pi/pi-coding-agent (https://github.com/can1357/oh-my-pi). MIT License. Copyright (c) 2025 Mario Zechner, Copyright (c) 2025-2026 Can Bölük.
  */
@@ -12,8 +12,8 @@ import {
   normalizeToLF,
   restoreLineEndings,
   stripBom,
-} from '@hy-sde/dsh-hashline'
-import type { BomResult, LineEnding } from '@hy-sde/dsh-hashline'
+} from '@hy-sde-org/dsh-hashline'
+import type { BomResult, LineEnding } from '@hy-sde-org/dsh-hashline'
 
 export { detectLineEnding, normalizeToLF, restoreLineEndings, stripBom }
 export type { BomResult, LineEnding }

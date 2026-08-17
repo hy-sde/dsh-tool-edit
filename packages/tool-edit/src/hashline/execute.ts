@@ -23,7 +23,7 @@ import {
   type PatchSectionResult,
   type PreparedSection,
   startClipboardBatch,
-} from '@hy-sde/dsh-hashline'
+} from '@hy-sde-org/dsh-hashline'
 import type { EditDiagnosticsResult } from '../lsp/writethrough.ts'
 import type { EditSession } from '../session.ts'
 import { generateDiffString } from '../diff.ts'
@@ -196,7 +196,7 @@ export async function executeHashlineSingle(options: ExecuteHashlineSingleOption
   // Single-section fast path: prepare, commit, render.
   const inputHash = hashPatchInput(options.input)
   if (patch.sections.length === 1) {
-    const prepared = await patcher.prepare(patch.sections[0] as import('@hy-sde/dsh-hashline').PatchSection, clipboard)
+    const prepared = await patcher.prepare(patch.sections[0] as import('@hy-sde-org/dsh-hashline').PatchSection, clipboard)
     const sectionResult = await patcher.commit(prepared)
     commitClipboard(clipboard, sessionClipboard)
     if (sectionResult.op === 'noop') {
