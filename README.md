@@ -36,16 +36,41 @@ claim is evidenced, not asserted.
 pnpm install --global @deepseek-ai/dsh
 ```
 
-The packages are released as npm tarballs. **Once published**, install the
-plugin and its library resolves automatically:
+### Direct from npm (published)
+
+Both packages are published on the npm registry under the `hy-sde-org`
+organization (`@hy-sde-org/dsh-hashline` and `@hy-sde-org/dsh-tool-edit`,
+version `0.1.0-rc.6`). Install the plugin straight from npm — the registry
+resolves the hashline library dependency and the DeepSeek Harness peer
+packages automatically, no tarballs, no ordering:
 
 ```bash
+# one command; @hy-sde-org/dsh-hashline comes in as a transitive dependency
 dsh plugin --profile web add @hy-sde-org/dsh-tool-edit
 ```
 
-**Before publishing**, install from the built tarballs — and pin the
-unpublished dependency so `pnpm add` doesn't query the registry for
-`@hy-sde-org/dsh-hashline`:
+That's it. `dsh plugin add` reconciles the profile's bundle list from the
+installed `dsh.bundle.patch` export, so after installation the
+`hy-sde-edit-fs` composition (below) is immediately active in the named
+profile.
+
+You can also just depend on the packages from your own tooling as normal npm
+dependencies:
+
+```bash
+npm install @hy-sde-org/dsh-tool-edit   # or pnpm add / yarn add
+npm install @hy-sde-org/dsh-hashline    # the engine, if you need it directly
+```
+
+> **Registry notes.** `latest` is `0.1.0-rc.6`; the earlier `0.1.0-rc.5` of
+> `dsh-tool-edit` was published with a raw `workspace:` dependency spec and is
+> *deprecated* on npm — never install it explicitly.
+
+### From the git checkout (pre-publish / development)
+
+Before the registry publish (or when hacking on the repo itself), install
+from the built tarballs — and pin the unpublished dependency so `pnpm add`
+doesn't query the registry for `@hy-sde-org/dsh-hashline`:
 
 ```bash
 git clone git@github.com:hy-sde/dsh-tool-edit.git
@@ -63,8 +88,8 @@ TOOLEDIT_TGZ="$(cd packages/tool-edit && pnpm pack --silent --pack-destination /
 dsh plugin --profile web add "$TOOLEDIT_TGZ"
 ```
 
-(The `overrides` entry is a pre-publication shim; delete it after the first
-real publish.)
+(The `overrides` entry is a pre-publication shim; delete it once you're on
+the released registry package.)
 
 > **Install order note:** don't try to satisfy the dependency by installing the
 > hashline tarball "first" — pnpm re-resolves the full graph on every `add`
