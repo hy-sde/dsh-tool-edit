@@ -122,6 +122,19 @@ dsh plugin --profile web remove @hy-sde-org/dsh-hashline
 > disables a web deployment has (a user patch disabling the base tool rows),
 > or mount the plugin rows inside a preset realm.
 
+> **Requires a modern harness `tool-fs` (the `enableEdit: false` option).**
+> The bundle's own `hy-sde-tool-fs` row mounts `@deepseek-ai/dsh-tool-fs`
+> with `enableEdit: false` so the plain `edit` steps aside for this rich
+> editor — a `tool-fs` capability that exists only in harness builds after
+> commit `4ecaa375a7` (the current dev tree / next release) and is **not** in
+> the released `dsh-v0.1.0-rc.7` tag nor the published
+> `@deepseek-ai/dsh-tool-fs@0.1.0-rc.7`. On `rc.7` the key is silently ignored
+> (`tool-fs` still registers `edit`), so this bundle fails with "prompt
+> section `tool:edit` is already registered" the moment it mounts. On a
+> `rc.7` harness, pair the **`@hy-sde-org/dsh-tool-ast`** bundle with the
+> shipped `edit` instead (that bundle works standalone on `rc.7` — verified),
+> or run a harness build that includes the `enableEdit` feature.
+
 ## What the bundle does
 
 The plugin's `cordis.patch.yml` is **self-contained**: `ctx.fs` is not
