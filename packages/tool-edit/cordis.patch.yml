@@ -1,49 +1,35 @@
-# @hy-sde-org/dsh-tool-edit — a self-contained filesystem + rich-edit surface.
+# @hy-sde-org/dsh-tool-edit — install surface for the rich `edit` tool.
 #
-# The plugin brings its OWN fs realm: `ctx.fs` is not mounted host-wide in
-# DeepSeek Harness (presets own local filesystem discovery), so these rows
-# make the deployment self-sufficient — `read`/`write` plus the rich `edit`
-# tool. The realm is isolated like a preset's filesystem group so the
-# read/write tools and the edit tool share one fs instance and one
-# observation ledger.
+# The official DeepSeek Harness releases (`dsh-v0.1.0-rc.7`, and any release
+# whose `@deepseek-ai/dsh-tool-fs` still has no `enableEdit` switch) cannot
+# host a drop-in `edit` bundle on the HOST plane: their `tool-fs` always
+# registers `read`/`write`/`edit`, so inserting a second `edit`-owner
+# anywhere in the deployment tree fails boot with "prompt section `tool:edit`
+# is already registered" (the `enableEdit: false` key is silently ignored on
+# these releases). The rich editor therefore mounts at the AGENT plane — one
+# row in a user agent preset — where its scoped `tool:edit`/`edit` shadow the
+# deployment's stock ones. See the README "Replacing the built-in editor"
+# section and `examples/agent-preset/` in the package for the ready-to-copy
+# preset.
 #
-# All row ids carry the `hy-sde-` prefix to avoid clashing with any shipped
-# row of the same name (a duplicate loader id fails the boot).
+# What installing this patch DOES do on a stock release:
 #
-# Override per deployment (e.g. set the working directory root) by patching
-# the row by id:
+#   - `tool-str-replace-editor` — disables the standalone Anthropic-style
+#     `str_replace_editor` tool the official harness ships host-wide
+#     (`@deepseek-ai/dsh-tool-str-replace-editor`). Sessions keep
+#     `read`/`write`/`edit` from the deployment's `tool-fs`, and once you
+#     mount the preset row below the rich `edit` replaces the stock one. On
+#     harness builds that already dropped that package (the hy-sde fork), the
+#     row is absent and the loader only warns — which is fine.
 #
-#   - id: hy-sde-fs-local
-#     config:
-#       cwd: /path/to/workspace
+#   - No rows are inserted. Every host-plane variant that provides the rich
+#     editor alone, or with its own `tool-fs`, collides on stock harnesses as
+#     described above, so the bundle stays out of the way and lets the
+#     per-session preset own the `edit` name.
 #
-# Or keep configuration where you already set it. The `edit` tool can be
-# reached in any mode the config selects; see the package README.
-- insert:
-    - id: hy-sde-edit-fs
-      name: cordis:group
-      group: true
-      isolate:
-        fs: true
-      config:
-        - id: hy-sde-fs-local
-          name: '@deepseek-ai/dsh-fs-local'
-          config:
-            cwd: !!js process.env.DSH_CWD ?? process.cwd()
-
-        - id: hy-sde-tool-fs
-          name: '@deepseek-ai/dsh-tool-fs'
-          config:
-            # The rich tool below IS the editor; keep the suite's own `edit`
-            # row out so there is exactly one edit tool.
-            enableEdit: false
-
-        - id: hy-sde-tool-edit
-          name: '@hy-sde-org/dsh-tool-edit'
-          config:
-            mode: auto
-            fuzzyMatch: true
-            fuzzyThreshold: 0.95
-            formatOnWrite: true
-            diagnosticsOnEdit: true
-            diagnosticsDeduplicate: true
+# Re-enable the shipped editor later by patching `disabled: null`:
+#
+#   - id: tool-str-replace-editor
+#     disabled: null
+- id: tool-str-replace-editor
+  disabled: true

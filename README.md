@@ -40,7 +40,7 @@ pnpm install --global @deepseek-ai/dsh
 
 Both packages are published on the npm registry under the `hy-sde-org`
 organization (`@hy-sde-org/dsh-hashline` and `@hy-sde-org/dsh-tool-edit`,
-version `0.1.0-rc.6`). Install the plugin straight from npm — the registry
+version `0.1.0-rc.7`). Install the plugin straight from npm — the registry
 resolves the hashline library dependency and the DeepSeek Harness peer
 packages automatically, no tarballs, no ordering:
 
@@ -49,10 +49,13 @@ packages automatically, no tarballs, no ordering:
 dsh plugin --profile web add @hy-sde-org/dsh-tool-edit
 ```
 
-That's it. `dsh plugin add` reconciles the profile's bundle list from the
-installed `dsh.bundle.patch` export, so after installation the
-`hy-sde-edit-fs` composition (below) is immediately active in the named
-profile.
+On **official harness releases (rc.7 and later)** the bundle's patch seams are
+deliberately minimal (see [Replacing the built-in editor](#replacing-the-built-in-editor)):
+`dsh plugin add` reconciles the profile, disables the shipped
+`str_replace_editor` tool, and the rich editor is then mounted by adding the
+provided [agent preset](#replacing-the-built-in-editor) row. Installing the
+bundle alone never breaks boot and never claims the `edit` name on the host
+plane.
 
 You can also just depend on the packages from your own tooling as normal npm
 dependencies:
@@ -62,9 +65,11 @@ npm install @hy-sde-org/dsh-tool-edit   # or pnpm add / yarn add
 npm install @hy-sde-org/dsh-hashline    # the engine, if you need it directly
 ```
 
-> **Registry notes.** `latest` is `0.1.0-rc.6`; the earlier `0.1.0-rc.5` of
-> `dsh-tool-edit` was published with a raw `workspace:` dependency spec and is
-> *deprecated* on npm — never install it explicitly.
+> **Registry notes.** `latest` is `0.1.0-rc.7`. The earlier `0.1.0-rc.6` and
+> `0.1.0-rc.5` of `dsh-tool-edit` were published before the rc.7 bundle
+> posture (they mounted a self-contained fs realm that requires the
+> `enableEdit` harness feature and fails boot on stock rc.7) — do not install
+> them on an official harness.
 
 ### From the git checkout (pre-publish / development)
 
@@ -99,7 +104,7 @@ the released registry package.)
 ### Verify
 
 ```bash
-dsh web --dump-config   # look for the hy-sde-edit-fs group rows
+dsh web --dump-config   # the tool-str-replace-editor row is patched to disabled: true
 ```
 
 ### Uninstall
@@ -107,54 +112,73 @@ dsh web --dump-config   # look for the hy-sde-edit-fs group rows
 ```bash
 dsh plugin --profile web remove @hy-sde-org/dsh-tool-edit
 dsh plugin --profile web remove @hy-sde-org/dsh-hashline
+# remove the preset directory you copied from examples/agent-preset/ as well
 ```
 
-> **Already shipped?** If a future DeepSeek Harness release adopts a rich
-> edit tool itself, skip installation — adding this bundle on top would
-> duplicate the loader row and fail at boot ("duplicate loader entry id").
+## Replacing the built-in editor (official harness, rc.7+)
 
-> **Prompt-section collisions on raw profiles:** the shipped `web` profile
-> (the GUI) disables the base host-plane tool rows, so the plugin's
-> `read`/`write`/`edit` register cleanly there. On a raw `dsh-base` profile
-> (e.g. some headless setups) the host still mounts its own `tool-fs`, whose
-> `tool:read`/`tool:edit` system-prompt sections collide with the plugin's —
-> boot fails with "prompt section … is already registered". Apply the same
-> disables a web deployment has (a user patch disabling the base tool rows),
-> or mount the plugin rows inside a preset realm.
+The official harness ships TWO editing surfaces host-wide: the `tool-fs`
+`read`/`write`/`edit` suite and a dedicated Anthropic-style `str_replace_editor`
+tool. On stock releases this plugin replaces them like this:
 
-> **Requires a modern harness `tool-fs` (the `enableEdit: false` option).**
-> The bundle's own `hy-sde-tool-fs` row mounts `@deepseek-ai/dsh-tool-fs`
-> with `enableEdit: false` so the plain `edit` steps aside for this rich
-> editor — a `tool-fs` capability that exists only in harness builds after
-> commit `4ecaa375a7` (the current dev tree / next release) and is **not** in
-> the released `dsh-v0.1.0-rc.7` tag nor the published
-> `@deepseek-ai/dsh-tool-fs@0.1.0-rc.7`. On `rc.7` the key is silently ignored
-> (`tool-fs` still registers `edit`), so this bundle fails with "prompt
-> section `tool:edit` is already registered" the moment it mounts. On a
-> `rc.7` harness, pair the **`@hy-sde-org/dsh-tool-ast`** bundle with the
-> shipped `edit` instead (that bundle works standalone on `rc.7` — verified),
-> or run a harness build that includes the `enableEdit` feature.
+1. **Installing the bundle disables `str_replace_editor`** — the plugin's
+   `cordis.patch.yml` patches the shipped `tool-str-replace-editor` row to
+   `disabled: true` (re-enable later with `disabled: null`).
+2. **The rich `edit` replaces the stock `edit` by agent scope shadowing** —
+   harness scoped-tools semantics let a tool registered in the agent's own
+   scope layer shadow a global tool of the same name. Mounting the plugin's
+   `tool-edit` row in a user agent preset makes `edit` resolve to the rich
+   editor, while `read`/`write` keep resolving from the deployment's host
+   `tool-fs`. No host-plane bundle row can do this: the official `tool-fs` has
+   no way to disable its own `edit` (the `enableEdit: false` key exists only
+   in the hy-sde fork), so a second `edit`-owner on the host plane fails boot
+   with "prompt section `tool:edit` is already registered".
+
+The ready-to-copy preset ships in the package under
+`examples/agent-preset/` (`agent.cordis.yml` + `preset.yml`). Install:
+
+```bash
+# from the installed package or this repo:
+mkdir -p ~/.dsh/.agent-presets/my-edit
+cp packages/tool-edit/examples/agent-preset/agent.cordis.yml \
+   packages/tool-edit/examples/agent-preset/preset.yml \
+   ~/.dsh/.agent-presets/my-edit/
+# then select "Edit Mode (rich)" in the Web UI preset picker (or `dsh agent`)
+```
+
+The example preset mounts the rich editor beside the LSP seam in an entry-local
+realm (`isolate: { lsp: true }`) so format-on-write and diagnostics-on-edit
+work with zero upstream changes, and explicitly omits `tool-fs` — keeping the
+per-session `tool-fs` row would register the stock `edit` in the same scope and
+fail the preset boot. Copy the other rows you normally use (bash, todo,
+ask-user, skills, …) from your current preset next to these; only the
+filesystem-editing rows are special. `read`/`write` always keep coming from the
+deployment's host `tool-fs`.
 
 ## What the bundle does
 
-The plugin's `cordis.patch.yml` is **self-contained**: `ctx.fs` is not
-mounted host-wide in Harness (presets own local filesystem discovery), so the
-bundle brings its own isolated fs realm with fresh row ids (`hy-sde-*`) that
-cannot collide with shipped rows:
+On official releases the plugin's `cordis.patch.yml` is intentionally *not*
+self-contained: a host-plane fs realm cannot own the `edit` name because the
+official `tool-fs` always registers `edit` (no `enableEdit` switch) — every
+variant collides at boot. What the patch does instead:
 
-- `hy-sde-edit-fs` — a `cordis:group` isolated on `fs`
-  - `hy-sde-fs-local` — `@deepseek-ai/dsh-fs-local` (cwd: `DSH_CWD` or the
-    harness process cwd; override by patching this row with your workspace)
-  - `hy-sde-tool-fs` — `@deepseek-ai/dsh-tool-fs` with `enableEdit: false`
-  - `hy-sde-tool-edit` — `@hy-sde-org/dsh-tool-edit` (the rich editor)
+- `tool-str-replace-editor` → `disabled: true` — retires the standalone
+  `str_replace_editor` tool the harness ships host-wide (matches the hy-sde
+  fork, which deleted the package outright).
+- No rows inserted — the rich editor is mounted at the agent plane per the
+  section above, where scoped shadowing makes it THE `edit` tool.
 
-Configure per deployment by patching the rows by id, e.g.:
+The **hy-sde fork** already integrates the rich editor directly in its shipped
+presets (`code-edit`, `minimal`); there you keep mounting
+`@hy-sde-org/dsh-tool-edit` in a preset beside `tool-fs` with
+`enableEdit: false` (fork-only key), and the bundle patch above is a harmless
+no-op (the `str_replace_editor` row does not exist there — the loader warns and
+continues).
+
+Configure the tool by patching the `tool-edit` row in your preset by id:
 
 ```yaml
-- id: hy-sde-fs-local
-  config:
-    cwd: /path/to/workspace
-- id: hy-sde-tool-edit
+- id: tool-edit
   config:
     mode: hashline      # 'auto' | 'hashline' | 'replace' | 'patch' | 'apply_patch'
     formatOnWrite: true

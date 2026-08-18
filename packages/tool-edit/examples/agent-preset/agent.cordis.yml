@@ -1,0 +1,70 @@
+# User agent preset for @hy-sde-org/dsh-tool-edit on OFFICIAL DeepSeek Harness
+# releases (dsh-v0.1.0-rc.7 and later) — "rich edit replaces the built-in
+# str_replace_editor".
+#
+# Install: copy this directory to ~/.dsh/.agent-presets/<id>/ (pick any id),
+# then select the preset in the Web UI preset picker (or `dsh agent` CLI).
+#
+# Why no `tool-fs` row here: official releases have no `enableEdit` switch,
+# so a per-session `tool-fs` registers the STOCK `edit` in the same scope as
+# the rich one and the preset fails with "prompt section `tool:edit` is
+# already registered". This preset therefore omits `tool-fs` entirely:
+# `read`/`write` keep coming from the deployment's host `tool-fs` (the base
+# bundle), and the rich editor's scoped `edit` shadows the deployment's
+# stock global `edit`. The dedicated `str_replace_editor` tool is disabled by
+# the plugin's own `cordis.patch.yml` on install.
+#
+# Copy any other rows from the preset you normally use (bash, todo, ask-user,
+# skills, ...) next to these; only the filesystem editing rows are special.
+
+- id: persona
+  name: '@deepseek-ai/dsh-persona'
+  config:
+    text: >-
+      You are a coding agent powered by the {{model}} model. Your working directory is {{cwd}}.
+      Edit files with the `edit` tool, which supports four editing modes:
+      `replace` (literal old_string -> new_string with fuzzy fallback), `patch`
+      (structured JSON hunks), `apply_patch` (*** Begin Patch envelopes), and
+      `hashline` (line-anchored compact patches). Read a file before editing it.
+
+- id: agent-instructions
+  name: '@deepseek-ai/dsh-agent-instructions'
+  config:
+    maxBytes: 65536
+
+# Rich editor + embedded LSP (format-on-write, diagnostics-on-edit). The LSP
+# seam and its stdio provider live in an entry-local realm so each mounted
+# session owns its language-server processes; tool-edit sits beside them so it
+# can resolve the optional `ctx.lsp` writethrough. Without a server for a file
+# type, writethrough silently no-ops and the edit still succeeds.
+- id: edit-lsp
+  name: cordis:group
+  group: true
+  isolate:
+    lsp: true
+  config:
+    - id: lsp
+      name: '@deepseek-ai/dsh-lsp'
+
+    - id: lsp-stdio
+      name: '@deepseek-ai/dsh-lsp-stdio'
+      config:
+        servers:
+          typescript:
+            command: npx
+            args: [--yes, typescript-language-server@5.0.0, --stdio]
+            extensionToLanguage:
+              .ts: typescript
+              .tsx: typescriptreact
+              .js: javascript
+              .jsx: javascriptreact
+
+    - id: tool-edit
+      name: '@hy-sde-org/dsh-tool-edit'
+      config:
+        mode: auto
+        fuzzyMatch: true
+        fuzzyThreshold: 0.95
+        formatOnWrite: true
+        diagnosticsOnEdit: true
+        diagnosticsDeduplicate: true

@@ -1,0 +1,18 @@
+# Bench arm: baseline — the deployment's STOCK `edit`.
+#
+# Intentionally tool-less: the bench driver's overlay patch keeps the host
+# `tool-fs` row, so the task Agent resolves the host `read`/`write`/`edit`
+# surface as-is (the stock tool-fs `edit`). The only difference from the
+# `rich` arm is which `edit` the agent resolves — this one is the baseline.
+#
+# The persona is `complete`, so both arms share a byte-identical system
+# prompt and runtime-context snapshots are suppressed, keeping the A/B clean.
+- id: persona
+  name: '@deepseek-ai/dsh-persona'
+  config:
+    text: >-
+      You are a coding agent powered by the {{model}} model. Your working
+      directory is {{cwd}}. Read a file before editing it, and make targeted
+      edits with the `edit` tool.
+    complete: true
+    includeRuntimeContext: false

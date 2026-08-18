@@ -1,6 +1,6 @@
 {
   "name": "@hy-sde-org/dsh-hashline",
-  "version": "0.1.0-rc.5",
+  "version": "0.1.0-rc.7",
   "description": "Line-anchored edit-patch engine (hashline) ported from oh-my-pi — the pure, dependency-free core behind the rich `edit` tool for DeepSeek Harness.",
   "type": "module",
   "main": "./dist/index.js",

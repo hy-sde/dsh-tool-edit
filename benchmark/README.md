@@ -1,11 +1,27 @@
-# Benchmark: rich `edit` vs the built-in `str_replace_editor`
+# Benchmark: rich `edit` vs the built-in editor
 
 This directory records the A/B run that answers the question the tool was
 built for: **does the ported rich `edit` tool improve over DeepSeek Harness's
-built-in `str_replace_editor`?** It exists because a port's value claim has to
-be evidenced, not asserted — see **Why this benchmark is here** below.
+built-in editor?** It exists because a port's value claim has to be evidenced,
+not asserted — see **Why this benchmark is here** below.
+
+Two things live here:
+
+- **Recorded evidence** ([`results/`](./results)) — a completed A/B run, with
+  the tables below regenerated from it by [`compare.mjs`](./compare.mjs).
+- **The tooling to re-run it** — the harness-side driver
+  ([`run-edit-benchmark.ts`](./run-edit-benchmark.ts)) and two agent presets
+  ([`presets/`](./presets)) that reproduce the A/B on today's harness releases.
+
+An important honesty note up front: **the recorded run and a re-run today use
+different arm definitions, so new numbers are NOT directly comparable to the
+recorded tables** (details under [Setup](#setup) and
+[Reproduce](#reproduce)). The tables below remain the regression floor for the
+tool's behavior.
 
 ## Setup
+
+### What the recorded run used (Aug 2026, hy-sde fork harness)
 
 - **Tasks**: the [oh-my-pi TypeScript edit benchmark] fixture suite
   (`packages/typescript-edit-benchmark`, 106 tasks total) — pre-rendered
@@ -19,17 +35,38 @@ be evidenced, not asserted — see **Why this benchmark is here** below.
 - **Model**: `deepseek-v4-flash-0731` (local OpenAI-compatible route, the
   deployment's default).
 - **Arms** (differ in exactly one variable — the edit tool):
-  - `minimal`: persistent bash + `str_replace_editor` (built-in).
+  - `minimal`: persistent bash + `str_replace_editor` (built-in Anthropic-style
+    tool).
   - `minimal-code-edit`: persistent bash + `read`/`write` + rich `edit`
     (replace / patch / apply_patch / hashline).
 - **Harness**: the real headless profile boot; host-plane tool rows disabled
   exactly like the shipped `web` profile so each arm sees **only** its preset's
   tools; a fresh agent/session per task; byte-for-byte verification.
 
-Raw per-task results live in [`results/`](./results) and can be re-derived
-with [`compare.mjs`](./compare.mjs).
+### Re-running today (rc.7 posture)
 
-## Mutation wave (41 tasks, 1 run)
+The fork harness that produced the recorded run later **deleted
+`str_replace_editor` and the benchmark driver**, and stock releases ship a
+`tool-fs` without the `enableEdit` switch that the old self-contained rich
+preset relied on. Re-running on current harnesses therefore needs the arms
+redefined so the A/B stays single-variable:
+
+- Both arms share the **deployment's host `tool-fs`** (`read`/`write`/`edit`)
+  plus a fixed persona; the bench driver's patch disables the other
+  host-plane rows and the standalone `str_replace_editor` tool.
+- `baseline` ([`presets/baseline/`](./presets/baseline)) — no editor row, so
+  the host **stock `edit`** resolves.
+- `rich` ([`presets/rich/`](./presets/rich)) — a `tool-edit` row whose scoped
+  `edit` **shadows** the host stock one; `read`/`write` still come from the
+  host.
+
+The tool surface is identical on both arms (read / write / edit); only the
+`edit` implementation differs. Because the baseline is now the stock `tool-fs`
+`edit` (not `str_replace_editor`) and the rich arm no longer owns its own
+filesystem, **re-run numbers are not comparable to the recorded tables** —
+treat a re-run as its own fresh A/B on the current release.
+
+## Mutation wave (41 tasks, 1 run — recorded on the fork)
 
 | metric | `minimal` (str_replace_editor) | `minimal-code-edit` (rich edit) | Δ |
 |---|---|---|---|
@@ -57,7 +94,7 @@ Per-category mean duration (rich edit faster in every category):
 | operator-remove-negation | 35490ms | 30261ms | −15% |
 | operator-swap-* | 60487ms | 38586ms | −36% |
 
-## Structural wave (61 tasks, 1 run)
+## Structural wave (61 tasks, 1 run — recorded on the fork)
 
 | metric | `minimal` (str_replace_editor) | `minimal-code-edit` (rich edit) | Δ |
 |---|---|---|---|
@@ -144,29 +181,96 @@ wrote it — no paths, no session data, nothing machine-specific.
 
 ## Reproduce
 
-The driver (`scripts/run-edit-benchmark.ts`) runs in the DeepSeek Harness
-repo (its imports cross into harness internals, so it cannot live in this
-plugin repo). From the harness checkout root:
+Re-running requires a **DeepSeek Harness checkout** plus the **oh-my-pi
+fixtures**; the driver boots the real `headless` profile so it must live where
+it can import the harness CLI internals.
+
+### 1. Prerequisites
+
+- A harness checkout (stock release ≥ `rc.7`, or a fork) with `pnpm i` done,
+  and **the rich `edit` plugin installed into it** so the harness resolves
+  `@hy-sde-org/dsh-tool-edit`:
+  ```bash
+  dsh plugin --profile web add @hy-sde-org/dsh-tool-edit   # or the fork's equivalent
+  ```
+- The oh-my-pi fixture suite:
+  ```bash
+  git clone https://github.com/can1357/oh-my-pi
+  # fixtures: <oh-my-pi>/packages/typescript-edit-benchmark/fixtures
+  ```
+- The plugin's bundled LSP client and hashline engine ship inside the plugin
+  package — no extra installs for the default `mode: auto` arms.
+
+### 2. Copy the driver into the harness
+
+`benchmark/run-edit-benchmark.ts` imports `runProfile` from the harness CLI
+internals (`apps/cli/src/profile-boot.ts`), which are not published to npm, so
+copy it into the harness checkout at the exact location its relative imports
+expect — the harness `scripts/` directory:
 
 ```bash
-pnpm exec tsx scripts/run-edit-benchmark.ts \
-  --preset minimal \
-  --fixtures <oh-my-pi>/packages/typescript-edit-benchmark/fixtures \
-  --out benchmark/results/mutation-minimal.json
-pnpm exec tsx scripts/run-edit-benchmark.ts \
-  --preset minimal-code-edit \
-  --fixtures <oh-my-pi>/packages/typescript-edit-benchmark/fixtures \
-  --out benchmark/results/mutation-minimal-code-edit.json
+cp benchmark/run-edit-benchmark.ts <harness>/scripts/run-edit-benchmark.ts
+cp benchmark/summarize-edit-benchmark.ts <harness>/scripts/summarize-edit-benchmark.ts
 ```
 
-(Repeat for the 61-task structural suite by passing `--tasks` with the
-`structural-*` fixture ids, or by extending the driver's category slice.)
-The `minimal-code-edit` preset used by the driver is the harness-side
-equivalent of this plugin's `cordis.patch.yml` — the same row set, mounted
-inside a preset realm instead of as a profile bundle.
+They are plain `.ts` files — no build step; run them with `pnpm exec tsx`.
 
-`benchmark/compare.mjs` regenerates the comparison tables from any two
-results JSONs.
+### 3. Install the bench presets
+
+The driver mounts presets by id, resolving them from the harness roster
+(including the user preset root, which its overlay patch enables). Copy the
+two arms into your user preset root and rename the directories to `baseline`
+and `rich` (the preset ids):
+
+```bash
+cp -R benchmark/presets/rich      ~/.dsh/.agent-presets/rich
+cp -R benchmark/presets/baseline  ~/.dsh/.agent-presets/baseline
+```
+
+(Adjust for a non-default `DSH_HOME`/user preset root.) The driver's
+`--preset` argument names whatever id you installed.
+
+### 4. Run the arms
+
+From the **harness checkout root** (the driver's relative imports resolve
+there), one invocation per arm per wave. Each run of the full 106-task suite
+takes roughly 1–2 hours on a local route; use `--limit` for a pilot slice
+first and benchmark/compare.mjs to eyeball the delta before committing hours:
+
+```bash
+# pilot check (a few tasks) — mutation-ish categories by default:
+pnpm exec tsx scripts/run-edit-benchmark.ts --preset baseline --fixtures <oh-my-pi>/packages/typescript-edit-benchmark/fixtures --out /tmp/bench/baseline-pilot.json --limit 3
+pnpm exec tsx scripts/run-edit-benchmark.ts --preset rich     --fixtures <oh-my-pi>/packages/typescript-edit-benchmark/fixtures --out /tmp/bench/rich-pilot.json     --limit 3
+
+# full mutation wave (41 tasks, default slice):
+pnpm exec tsx scripts/run-edit-benchmark.ts --preset baseline --fixtures <oh-my-pi>/packages/typescript-edit-benchmark/fixtures --out /tmp/bench/mutation-baseline.json
+pnpm exec tsx scripts/run-edit-benchmark.ts --preset rich     --fixtures <oh-my-pi>/packages/typescript-edit-benchmark/fixtures --out /tmp/bench/mutation-rich.json
+
+# full structural wave (61 tasks — pass --tasks with the structural-* ids, or
+# extend the driver's category slice):
+pnpm exec tsx scripts/run-edit-benchmark.ts --preset baseline --fixtures <oh-my-pi>/packages/typescript-edit-benchmark/fixtures --out /tmp/bench/structural-baseline.json --tasks structural-duplicate-block-001,structural-move-distant-block-001
+pnpm exec tsx scripts/run-edit-benchmark.ts --preset rich     --fixtures <oh-my-pi>/packages/typescript-edit-benchmark/fixtures --out /tmp/bench/structural-rich.json     --tasks structural-duplicate-block-001,structural-move-distant-block-001
+```
+
+### 5. Compare
+
+```bash
+node <dsh-tool-edit>/benchmark/compare.mjs /tmp/bench/mutation-baseline.json /tmp/bench/mutation-rich.json
+```
+
+### Caveats
+
+- **Not comparable to the recorded tables** (different baseline tool and arm
+  layout — see [Setup](#setup)). A re-run is a fresh A/B on the current
+  release; if you want a like-for-like lineage with the recorded numbers, run
+  both arms of the recorded definition (that requires a harness that still
+  ships `str_replace_editor` and the old self-contained rich preset).
+- Model route comes from the checkout's `agent-default-model` settings; the
+  recorded numbers were produced on the `deepseek-v4-flash-0731` local route.
+- Each task agent additionally gets whatever non-disabled host rows the
+  headless profile exports; the overlay patch disables the model-facing ones
+  (shell, skills, goals, todo, web, subagents, `str_replace_editor`, …) and
+  keeps `tool-fs`, so both arms see `read`/`write`/`edit` only.
 
 [oh-my-pi TypeScript edit benchmark]: https://github.com/can1357/oh-my-pi/tree/main/packages/typescript-edit-benchmark
 [Stencil blog post on the harness problem]: https://stencil.so/blog/the-harness-problem
