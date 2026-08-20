@@ -40,7 +40,7 @@ pnpm install --global @deepseek-ai/dsh
 
 Both packages are published on the npm registry under the `hy-sde-org`
 organization (`@hy-sde-org/dsh-hashline` and `@hy-sde-org/dsh-tool-edit`,
-version `0.1.0-rc.7`). Install the plugin straight from npm — the registry
+version `0.1.0-rc.8`). Install the plugin straight from npm — the registry
 resolves the hashline library dependency and the DeepSeek Harness peer
 packages automatically, no tarballs, no ordering:
 
@@ -49,7 +49,7 @@ packages automatically, no tarballs, no ordering:
 dsh plugin --profile web add @hy-sde-org/dsh-tool-edit
 ```
 
-On **official harness releases (rc.7 and later)** the bundle's patch seams are
+On **official harness releases (rc.8 and later)** the bundle's patch seams are
 deliberately minimal (see [Replacing the built-in editor](#replacing-the-built-in-editor)):
 `dsh plugin add` reconciles the profile, disables the shipped
 `str_replace_editor` tool, and the rich editor is then mounted by adding the
@@ -65,11 +65,13 @@ npm install @hy-sde-org/dsh-tool-edit   # or pnpm add / yarn add
 npm install @hy-sde-org/dsh-hashline    # the engine, if you need it directly
 ```
 
-> **Registry notes.** `latest` is `0.1.0-rc.7`. The earlier `0.1.0-rc.6` and
-> `0.1.0-rc.5` of `dsh-tool-edit` were published before the rc.7 bundle
-> posture (they mounted a self-contained fs realm that requires the
-> `enableEdit` harness feature and fails boot on stock rc.7) — do not install
-> them on an official harness.
+> **Registry notes.** `latest` is `0.1.0-rc.8` after the next publish. The
+> `0.1.0-rc.8` bundle (like `0.1.0-rc.7` before it) uses the minimal-patch
+> posture that boots on official harness releases; the earlier `0.1.0-rc.6` and
+> `0.1.0-rc.5` of `dsh-tool-edit` were published before the rc.7 bundle posture
+> (they mounted a self-contained fs realm that requires the
+> `enableEdit` harness feature and fails boot on stock rc.7/rc.8) — do not
+> install them on an official harness.
 
 ### From the git checkout (pre-publish / development)
 
@@ -115,7 +117,7 @@ dsh plugin --profile web remove @hy-sde-org/dsh-hashline
 # remove the preset directory you copied from examples/agent-preset/ as well
 ```
 
-## Replacing the built-in editor (official harness, rc.7+)
+## Replacing the built-in editor (official harness, rc.8+)
 
 The official harness ships TWO editing surfaces host-wide: the `tool-fs`
 `read`/`write`/`edit` suite and a dedicated Anthropic-style `str_replace_editor`
