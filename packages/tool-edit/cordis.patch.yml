@@ -1,6 +1,6 @@
 # @hy-sde-org/dsh-tool-edit — install surface for the rich `edit` tool.
 #
-# The official DeepSeek Harness releases (`dsh-v0.1.0-rc.7`, and any release
+# The official DeepSeek Harness releases (`dsh-v0.1.1-rc.2`, and any release
 # whose `@deepseek-ai/dsh-tool-fs` still has no `enableEdit` switch) cannot
 # host a drop-in `edit` bundle on the HOST plane: their `tool-fs` always
 # registers `read`/`write`/`edit`, so inserting a second `edit`-owner

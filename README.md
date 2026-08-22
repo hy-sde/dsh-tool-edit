@@ -40,7 +40,7 @@ pnpm install --global @deepseek-ai/dsh
 
 Both packages are published on the npm registry under the `hy-sde-org`
 organization (`@hy-sde-org/dsh-hashline` and `@hy-sde-org/dsh-tool-edit`,
-version `0.1.0-rc.8`). Install the plugin straight from npm — the registry
+version `0.1.1-rc.2`). Install the plugin straight from npm — the registry
 resolves the hashline library dependency and the DeepSeek Harness peer
 packages automatically, no tarballs, no ordering:
 
@@ -65,8 +65,8 @@ npm install @hy-sde-org/dsh-tool-edit   # or pnpm add / yarn add
 npm install @hy-sde-org/dsh-hashline    # the engine, if you need it directly
 ```
 
-> **Registry notes.** `latest` is `0.1.0-rc.8` after the next publish. The
-> `0.1.0-rc.8` bundle (like `0.1.0-rc.7` before it) uses the minimal-patch
+> **Registry notes.** `latest` is `0.1.1-rc.2` after the next publish. The
+> `0.1.1-rc.2` bundle (like `0.1.0-rc.7` before it) uses the minimal-patch
 > posture that boots on official harness releases; the earlier `0.1.0-rc.6` and
 > `0.1.0-rc.5` of `dsh-tool-edit` were published before the rc.7 bundle posture
 > (they mounted a self-contained fs realm that requires the

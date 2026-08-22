@@ -170,7 +170,7 @@ export class TextDocumentLspClient {
         'initialize',
         {
           processId: typeof process !== 'undefined' && typeof process.pid === 'number' ? process.pid : null,
-          clientInfo: { name: 'dsh-tool-edit', version: '0.1.0-rc.5' },
+          clientInfo: { name: 'dsh-tool-edit', version: '0.1.1-rc.2' },
           capabilities: {
             textDocument: {
               synchronization: { dynamicRegistration: false, willSave: false, didSave: false },
