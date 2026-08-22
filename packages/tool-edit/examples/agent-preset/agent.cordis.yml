@@ -1,5 +1,5 @@
 # User agent preset for @hy-sde-org/dsh-tool-edit on OFFICIAL DeepSeek Harness
-# releases (dsh-v0.1.0-rc.7 and later) — "rich edit replaces the built-in
+# releases (dsh-v0.1.1-rc.2 and later) — "rich edit replaces the built-in
 # str_replace_editor".
 #
 # Install: copy this directory to ~/.dsh/.agent-presets/<id>/ (pick any id),
