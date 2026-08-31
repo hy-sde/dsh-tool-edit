@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
-import { CallId } from '@deepseek-ai/dsh-llm'
+import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
 import AgentRegistry, { Inbox } from '@deepseek-ai/dsh-agent'
 import type { Agent } from '@deepseek-ai/dsh-agent'
@@ -48,7 +48,7 @@ function agent(ctx: Context, cwd: string): Agent {
 function call(ctx: Context, owner: Agent, args: unknown) {
   return ctx.tools.execute({
     signal: new AbortController().signal,
-    callId: CallId(`tool-edit-hashline-${++callNumber}`),
+    callId: ToolCallId(`tool-edit-hashline-${++callNumber}`),
     name: 'edit',
     arguments: args,
     agent: owner,

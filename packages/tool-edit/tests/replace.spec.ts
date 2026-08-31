@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
-import { CallId } from '@deepseek-ai/dsh-llm'
+import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
 import AgentRegistry, { Inbox } from '@deepseek-ai/dsh-agent'
 import type { Agent } from '@deepseek-ai/dsh-agent'
@@ -52,7 +52,7 @@ function text(result: { content: { type: string; text?: string }[] }): string {
 function call(ctx: Context, owner: Agent | undefined, args: unknown) {
   return ctx.tools.execute({
     signal: new AbortController().signal,
-    callId: CallId(`tool-edit-${++callNumber}`),
+    callId: ToolCallId(`tool-edit-${++callNumber}`),
     name: 'edit',
     arguments: args,
     ...owner === undefined ? {} : { agent: owner },
