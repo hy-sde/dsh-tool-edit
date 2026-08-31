@@ -66,9 +66,7 @@ patch mode:   { path: string, edits: Array<{ op: "create"|"delete"|"update", ren
 apply_patch / hashline mode: { input: string }
 </parameters>
 
-<critical>You MUST read the target file before editing it.
-Missing reads are caught by the fs-observation-policy when mounted;
-otherwise the edit proceeds from whatever content the tool can read.</critical>
+<critical>Read the target file before editing when you can: the read tool returns the current [path#tag] header plus line numbers, and hashline anchors are verified against that tagged content. A missing or stale tag is rejected — re-read for a fresh header, never invent or reuse an old tag. The executor's own reads also satisfy this session's fs-observation-policy, so an edit whose observed content matches your anchors lands in a single call.</critical>
 `.trim()
 
 /** The replace mode parameter JSON schema annotations. */

@@ -10,10 +10,16 @@ Harness CLI:
 
 The `edit` tool is a full parity port of oh-my-pi's coding-agent edit tool
 onto the harness tool/filesystem contract (`ctx.tools`, `ctx.fs`,
-`ctx.systemPrompt`). It reads through the filesystem before every edit,
-writes through the `fs/edit-intent` waterfall and records `fs/observed`, so
-the harness observation policy (when mounted) can enforce read-before-edit —
-and it bundles its **own LSP client**, so `formatOnWrite` and
+`ctx.systemPrompt`). It reads through the filesystem before every edit —
+its own authoritative read records `fs/observed`, so a deployment's
+observation policy is satisfied in a single call the way omp's `ToolSession`
+was (no separate model-facing `read` required, and the observed-version CAS
+still rejects a concurrent mutation) — and it writes through the
+`fs/edit-intent` waterfall. The hashline snapshot store is shared per agent
+session through `@hy-sde-org/dsh-hashline`'s `getSessionSnapshotStore`, so a
+`[path#tag]` header that a read/search tool minted validates against the
+exact content (and lines) the model saw: first-try tags, no re-read cycle.
+It also bundles its **own LSP client**, so `formatOnWrite` and
 `diagnosticsOnEdit` work on stock DeepSeek Harness deployments with **zero
 upstream changes** (the language server runs via `npx
 typescript-language-server` and degrades to edit-only when unavailable).

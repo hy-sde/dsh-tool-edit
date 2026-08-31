@@ -126,7 +126,17 @@ export function createEditSession(args: CreateEditSessionArgs): EditSession {
       return fs.stat(target, signal)
     },
     async readText(target, signal): Promise<string> {
-      return fs.readText(target, signal)
+      // Authoritative read: probe the version first, then read, then record the
+      // presence observation. This is what makes the editor self-contained the
+      // way omp's ToolSession is — an edit whose executor already read and
+      // verified the full content satisfies the fs-observation-policy without
+      // a separate model-facing `read` call, while the write's
+      // `replaceIfVersion` CAS (built from `info.version`) still rejects a
+      // concurrent mutation between this read and the guarded write.
+      const info = await fs.stat(target, signal)
+      const content = await fs.readText(target, signal)
+      if (info !== undefined) ctx.emit('fs/observed', target, { kind: 'present', version: info.version }, exec)
+      return content
     },
   }
 

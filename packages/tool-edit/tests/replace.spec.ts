@@ -208,35 +208,36 @@ describe('tool-edit (replace mode)', () => {
     expect(await readFile(sample, 'utf8')).toBe('content\n')
   })
 
-  it('delegates read-before-edit decisions to fs-observation-policy', async () => {
+  it('self-observes its own read so a blind edit lands; the policy still gates agentless calls', async () => {
     const { ctx, root, owner } = await setup({}, { fsPolicy: true })
     const sample = join(root, 'guarded.txt')
     await writeFile(sample, 'before')
 
-    const blind = await call(ctx, owner, {
+    // First try, no separate read step: the executor's authoritative read
+    // records the fs/observed presence record for the same owner, so the
+    // edit lands in one call (omp self-contained semantics) — while the
+    // write still goes through the policy's version CAS.
+    const landed = await call(ctx, owner, {
       path: sample,
       old_string: 'before',
       new_string: 'after',
     })
-    expect(blind.isError).toBe(true)
-    expect(blind.error).toMatchObject({ info: { code: 'FS_NOT_OBSERVED' } })
-    expect(await readFile(sample, 'utf8')).toBe('before')
-
-    // Simulate the model's read-first step: an fs/observed record for the
-    // same owner session (as the read tool emits after viewing the file).
-    const target = await ctx.fs.resolve(sample)
-    const info = await ctx.fs.stat(target)
-    if (info === undefined) throw new Error('expected the sample file to exist')
-    const readExec = { signal: new AbortController().signal, agent: owner }
-    ctx.emit('fs/observed', target, { kind: 'present', version: info.version }, readExec)
-
-    const guarded = await call(ctx, owner, {
-      path: sample,
-      old_string: 'before',
-      new_string: 'after',
-    })
-    expect(guarded.isError).toBe(false)
+    expect(landed.isError).toBe(false)
     expect(await readFile(sample, 'utf8')).toBe('after')
+
+    // Agentless direct execution has no owner to attribute an observation to,
+    // so the policy keeps rejecting it: a harness-side caller cannot satisfy
+    // the read-before-edit contract by inventing a session.
+    const sample2 = join(root, 'guarded2.txt')
+    await writeFile(sample2, 'value')
+    const agentless = await call(ctx, undefined, {
+      path: sample2,
+      old_string: 'value',
+      new_string: 'other',
+    })
+    expect(agentless.isError).toBe(true)
+    expect(agentless.error).toMatchObject({ info: { code: 'FS_NOT_OBSERVED' } })
+    expect(await readFile(sample2, 'utf8')).toBe('value')
   })
 
   it('rejects invalid config', () => {

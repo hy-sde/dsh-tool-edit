@@ -294,8 +294,9 @@ function registerEditTool(ctx: Context, config: ResolvedConfig, provider: EditLs
     name: 'tool:edit',
     order: 102,
     text: 'Use the edit tool for targeted changes to existing UTF-8 text files. ' +
-      'It replaces text in files after a mandatory read of the file first ' +
-      '(the default fs-observation-policy requires it, unless you just created or edited it in this session). ' +
+      'Read the file first to get its [path#tag] header and line numbers for hashline anchors; ' +
+      'the tool verifies anchors against that tagged content, applies atomically, and its own reads ' +
+      'satisfy the fs-observation-policy guard in this session. ' +
       'The tool runs in a fixed mode (see its description); call it with the argument shape for that mode.',
   })
 
