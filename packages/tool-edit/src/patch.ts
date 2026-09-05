@@ -327,12 +327,12 @@ function adjustLinesIndentation(patternLines: string[], actualLines: string[], n
           if (ws === 0) return line
           // Reverse: tabs = (spaces - offset) / width
           const adjusted = ws - offset
-          if (adjusted >= 0 && adjusted % tabWidth! === 0) {
-            return '\t'.repeat(adjusted / tabWidth!) + line.slice(ws)
+          if (adjusted >= 0 && adjusted % tabWidth === 0) {
+            return '\t'.repeat(adjusted / tabWidth) + line.slice(ws)
           }
           // Partial tab — keep remainder as spaces
-          const tabCount = Math.floor(adjusted / tabWidth!)
-          const remainder = adjusted - tabCount * tabWidth!
+          const tabCount = Math.floor(adjusted / tabWidth)
+          const remainder = adjusted - tabCount * tabWidth
           if (tabCount >= 0) {
             return '\t'.repeat(tabCount) + ' '.repeat(remainder) + line.slice(ws)
           }
@@ -724,7 +724,7 @@ function findHierarchicalContext(
         return {
           ...innerResult,
           matchCount: 1,
-          matchIndices: innerResult.index !== undefined ? [innerResult.index] : innerResult.matchIndices,
+          matchIndices: innerResult.matchIndices,
         }
       }
     }
@@ -791,7 +791,7 @@ function findHierarchicalContext(
       return {
         ...innerResult,
         matchCount: 1,
-        matchIndices: innerResult.index !== undefined ? [innerResult.index] : innerResult.matchIndices,
+        matchIndices: innerResult.matchIndices,
       }
     }
   }
@@ -960,7 +960,7 @@ function applyCharacterMatch(
   const adjustedNewText = adjustIndentation(normalizedOldText, matchOutcome.match.actualText, newText)
 
   const warnings: string[] = []
-  if (matchOutcome.dominantFuzzy && matchOutcome.match) {
+  if (matchOutcome.dominantFuzzy) {
     const similarityPercent = Math.round(matchOutcome.match.confidence * 100)
     warnings.push(
       `Dominant fuzzy match selected in ${path} near line ${matchOutcome.match.startLine} (${similarityPercent}% similar).`,
@@ -1227,7 +1227,7 @@ function computeReplacements(
         const hasSharedDuplicate = hunk.newLines.some(line => line.trim() === trimmed)
         const contextMatch = findContextRelativeMatch(originalLines, pattern[0] ?? '', contextIndex, hasSharedDuplicate)
         if (contextMatch !== undefined) {
-          searchResult = { index: contextMatch, confidence: searchResult.confidence ?? 0.95 }
+          searchResult = { index: contextMatch, confidence: searchResult.confidence }
         }
       }
     }
@@ -1467,7 +1467,7 @@ async function applyNormalizedPatch(input: PatchInput, options: ApplyPatchOption
 
   const resolvePath = (p: string): string => resolveToCwd(p, cwd)
   const absolutePath = resolvePath(input.path)
-  const op = input.op ?? 'update'
+  const op = input.op
 
   if (input.rename) {
     const destPath = resolvePath(input.rename)
@@ -1680,10 +1680,10 @@ export class EditSessionFileSystem implements FileSystem {
     return this.session.reader.readText(target, this.signal)
   }
 
-  async readBinary(): Promise<Uint8Array> {
+  readBinary(): Promise<Uint8Array> {
     // Binary BOM detection is not available through the harness text seam;
     // stripBom already covers text-level BOM detection.
-    return new Uint8Array()
+    return Promise.resolve(new Uint8Array())
   }
 
   async write(path: string, content: string): Promise<void> {

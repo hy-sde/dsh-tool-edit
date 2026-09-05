@@ -30,22 +30,22 @@ function myersDiff(a: readonly string[], b: readonly string[]): DiffOp[] {
     trace.push(v.slice())
     for (let k = -d; k <= d; k += 2) {
       let x: number
-      if (k === -d || (k !== d && v[offset + k - 1]! < v[offset + k + 1]!)) {
+      if (k === -d || (k !== d && (v[offset + k - 1] ?? 0) < (v[offset + k + 1] ?? 0))) {
         // Move down.
-        x = v[offset + k + 1]!
+        x = v[offset + k + 1] ?? 0
       } else {
         // Move right.
-        x = v[offset + k - 1]! + 1
+        x = (v[offset + k - 1] ?? 0) + 1
       }
       let y = x - k
-      while (x < n && y < m && a[x]! === b[y]!) {
+      while (x < n && y < m && (a[x] ?? '') === (b[y] ?? '')) {
         x++
         y++
       }
       v[offset + k] = x
       if (x >= n && y >= m) {
         foundD = d
-        break;
+        break
       }
     }
   }
@@ -54,10 +54,10 @@ function myersDiff(a: readonly string[], b: readonly string[]): DiffOp[] {
   let x = n
   let y = m
   for (d = foundD; d > 0; d--) {
-    const prev = trace[d]!
+    const prev = trace[d] ?? new Int32Array(0)
     const k = x - y
-    const prevK = k === -d || (k !== d && prev[offset + k - 1]! < prev[offset + k + 1]!) ? k + 1 : k - 1
-    const prevX = prev[offset + prevK]!
+    const prevK = k === -d || (k !== d && (prev[offset + k - 1] ?? 0) < (prev[offset + k + 1] ?? 0)) ? k + 1 : k - 1
+    const prevX = prev[offset + prevK] ?? 0
     const prevY = prevX - prevK
     while (x > prevX && y > prevY) {
       ops.push({ op: 'equal', count: 1 })

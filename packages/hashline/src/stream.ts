@@ -41,7 +41,7 @@ function createChunkEmitter(options: ResolvedStreamOptions): ChunkEmitter {
     outLines = []
     outBytes = 0
     return chunk
-  };
+  }
 
   const pushLine = (line: string): string[] => {
     const formatted = formatNumberedLine(lineNumber, line)
@@ -66,7 +66,7 @@ function createChunkEmitter(options: ResolvedStreamOptions): ChunkEmitter {
       if (flushed) chunks.push(flushed)
     }
     return chunks
-  };
+  }
 
   return { pushLine, flush }
 }
@@ -86,7 +86,7 @@ async function* bytesFromReadableStream(stream: ReadableStream<Uint8Array>): Asy
     while (true) {
       const { done, value } = await reader.read()
       if (done) return
-      if (value) yield value
+      yield value
     }
   } finally {
     reader.releaseLock()

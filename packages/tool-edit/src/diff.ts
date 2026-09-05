@@ -689,16 +689,15 @@ function formatOccurrenceMatchError(
   return `Found ${occurrences} occurrences${pathSuffix}${moreMsg}:\n\n${previews}\n\nAdd more context lines to disambiguate.`
 }
 
+function isTrailingBlankLine(line: string | undefined): boolean {
+  return line === '' || (line?.trim() === '' && !isDiffContentLine(line))
+}
+
 export function normalizeDiff(diff: string): string {
   let lines = diff.split('\n')
 
-  while (lines.length > 0) {
-    const lastLine = lines[lines.length - 1]
-    if (lastLine === '' || (lastLine?.trim() === '' && !isDiffContentLine(lastLine ?? ''))) {
-      lines = lines.slice(0, -1)
-    } else {
-      break
-    }
+  while (lines.length > 0 && isTrailingBlankLine(lines[lines.length - 1])) {
+    lines = lines.slice(0, -1)
   }
 
   if (lines[0] && isPatchWrapperLine(lines[0].trim())) {
@@ -888,7 +887,7 @@ function parseOneHunk(lines: string[], lineNumber: number, allowMissingContext: 
       break
     }
 
-    if (line !== undefined && !isDiffContentLine(line) && line.trimEnd() === EOF_MARKER && line.startsWith(EOF_MARKER)) {
+    if (!isDiffContentLine(line) && line.trimEnd() === EOF_MARKER && line.startsWith(EOF_MARKER)) {
       if (parsedLines === 0) {
         throw new ParseError('Hunk does not contain any lines', lineNumber + 1)
       }
@@ -903,7 +902,7 @@ function parseOneHunk(lines: string[], lineNumber: number, allowMissingContext: 
       continue
     }
 
-    const firstChar = line === undefined ? undefined : line[0]
+    const firstChar = line[0]
 
     if (firstChar === undefined || firstChar === '') {
       hunk.hasContextLines = true
@@ -1054,7 +1053,7 @@ export function parseDiffHunks(diff: string): DiffHunk[] {
       continue
     }
 
-    if (trimmed.startsWith('@@') && lines.slice(i + 1).every(next => next === undefined || next.trim() === '')) {
+    if (trimmed.startsWith('@@') && lines.slice(i + 1).every(next => next.trim() === '')) {
       break
     }
 

@@ -39,7 +39,8 @@ export function hasClipboardEdit(edits: readonly Edit[]): boolean {
 
 /** Optional knobs for {@link resolveClipboardEdits}. */
 export interface ResolveClipboardEditsOptions {
-  /** `PUT` with an empty register: `throw` (default) or `drop` (streaming previews). Named registers never throw — an empty named paste warns and pastes nothing. */
+  /** `PUT` with an empty register: `throw` (default) or `drop` (streaming previews). */
+  /** Named registers never throw — an empty named paste warns and pastes nothing. */
   onEmptyPaste?: 'throw' | 'drop'
   /** Receives non-fatal diagnostics (e.g. an empty named-register paste). */
   onWarning?: (message: string) => void
@@ -126,7 +127,7 @@ export function resolveClipboardEdits(
   for (const edit of edits) {
     if (edit.kind === 'cut') {
       writeRegister(edit, fileLines, clipboard)
-      continue;
+      continue
     }
     if (edit.kind === 'paste') {
       const lines = readRegister(

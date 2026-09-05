@@ -208,8 +208,8 @@ export function normalizeForFuzzy(line: string): string {
   if (trimmed.length === 0) return ''
 
   return trimmed
-    .replace(/[""„‟«»]/g, '"')
-    .replace(/[''‚‛`´]/g, "'")
+    .replace(/[“”„‟«»"]/g, '"')
+    .replace(/[‘’‚‛`´']/g, "'")
     .replace(/[‐‑‒–—−]/g, '-')
     .replace(/[ \t]+/g, ' ')
 }

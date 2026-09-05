@@ -27,7 +27,7 @@ afterEach(async () => {
 function agent(ctx: Context, cwd: string): Agent {
   const id = SessionId(`tool-edit-hashline-${callNumber}`)
   const scope = ctx.plugin(() => {})
-  const session = Session.create(id, [], { version: 0, id, createdAt: 0, cwd })
+  const session = Session.create(id, [], { version: 0, id, createdAt: 0, cwd, isSeeded: false })
   const value: Agent = {
     id,
     options: {},
@@ -173,15 +173,15 @@ describe('tool-edit (hashline) × fs-observation-policy', () => {
     expect(await readFile(sample, 'utf8')).toBe('def greet(name):\n    print(f"Hello, {name}")\ngreet("world")\n')
   })
 
-  it('a blind hashline edit self-observes under the policy and lands in one call', async () => {
+  it('a blind hashline edit lands in one call: the executor self-observes under the policy', async () => {
     const { ctx, root, owner } = await setupGuarded()
     const sample = join(root, 'blind.txt')
     const before = 'alpha\nbeta\n'
     await writeFile(sample, before)
 
-    // No separate read step: the hashline executor's own authoritative read
-    // records the fs/observed presence record for the same owner, so the
-    // guarded write passes with the version CAS intact.
+    // No read tool call at all. The prepare-time read by the hashline executor
+    // itself records the presence observation, so the guarded write passes
+    // with the version CAS intact — omp self-contained semantics.
     const tag = computeFileHash(before)
     const input = `[${sample}#${tag}]\nPUT 1.=1:\n+ALPHA\n`
     const result = await call(ctx, owner, { input })

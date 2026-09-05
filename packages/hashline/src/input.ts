@@ -43,7 +43,7 @@ function unquoteHashlinePath(pathText: string): string {
  * keyword block, case-insensitive. The remaining text is the real path.
  */
 const APPLY_PATCH_PATH_NOISE_RE =
-  /^\*{0,3}\s*(?:(?:update|add|delete|move)[^A-Za-z0-9]*(?:file|to)?[^A-Za-z0-9]*:)?\s*\*{0,3}\s*/i
+  /^\*{0,3}\s*(?:(?:update|add|delete|move)[^A-Z0-9]*(?:file|to)?[^A-Z0-9]*:)?\s*\*{0,3}\s*/i
 
 function stripApplyPatchPathNoise(pathText: string): string {
   return pathText.replace(APPLY_PATCH_PATH_NOISE_RE, '')
@@ -70,7 +70,7 @@ function tryParseRecoveryHeader(line: string, cwd?: string): RawSection | null {
   let fileHash: string | undefined
   if (trailing !== null) {
     pathText = body.slice(0, trailing.index)
-    fileHash = trailing[1]!.toUpperCase()
+    fileHash = (trailing[1] ?? '').toUpperCase()
   } else {
     pathText = body.replace(/\s+$/, '')
   }
@@ -145,10 +145,10 @@ function stripLeadingBlankLines(input: string): string {
   const stripped = input.startsWith('\uFEFF') ? input.slice(1) : input
   const lines = stripped.split('\n')
   while (lines.length > 0) {
-    const head = lines[0]!.replace(/\r$/, '')
+    const head = (lines[0] ?? '').replace(/\r$/, '')
     if (head.trim().length === 0 || TOKENIZER.tokenize(head).kind === 'envelope-begin') {
       lines.shift()
-      continue;
+      continue
     }
     break
   }
@@ -211,7 +211,7 @@ function splitRawSections(input: string, options: SplitOptions = {}): RawSection
     const hasOps = currentLines.some(line => line.trim().length > 0)
     if (hasOps) sections.push({ ...current, diff: currentLines.join('\n') })
     currentLines = []
-  };
+  }
 
   for (const line of lines) {
     const trimmed = line.trimEnd()
@@ -229,7 +229,7 @@ function splitRawSections(input: string, options: SplitOptions = {}): RawSection
         flush()
         current = header
         currentLines = []
-        continue;
+        continue
       }
     }
     currentLines.push(line)
@@ -321,11 +321,11 @@ export class PatchSection {
     for (const edit of this.edits) {
       if (edit.kind === 'delete' || edit.kind === 'block') {
         lines.add(edit.anchor.line)
-        continue;
+        continue
       }
       if (edit.kind === 'cut') {
         for (let line = edit.range.start.line; line <= edit.range.end.line; line++) lines.add(line)
-        continue;
+        continue
       }
       if (edit.kind === 'paste') {
         if (edit.at.kind === 'span') {
@@ -496,7 +496,7 @@ function mergeSamePathSections(sections: RawSection[]): RawSection[] {
       if (previousPath !== section.path) existing.interleaved = true
       existing.diffs.push(section.diff)
       previousPath = section.path
-      continue;
+      continue
     }
     byPath.set(section.path, {
       ...(section.fileHash !== undefined ? { fileHash: section.fileHash } : {}),

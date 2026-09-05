@@ -496,7 +496,7 @@ function findBestFuzzyMatch(
       false,
       excludedRanges,
     )
-    if (noDepthResult.best && noDepthResult.best.confidence > (result.best.confidence ?? 0)) {
+    if (noDepthResult.best && noDepthResult.best.confidence > result.best.confidence) {
       result = noDepthResult
     }
   }

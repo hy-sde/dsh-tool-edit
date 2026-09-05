@@ -72,11 +72,11 @@ function buildLineMap(previousText: string, currentText: string): Map<number, nu
     const count = change.count
     if (change.added) {
       currentLine += count
-      continue;
+      continue
     }
     if (change.removed) {
       previousLine += count
-      continue;
+      continue
     }
     for (let offset = 0; offset < count; offset++) {
       map.set(previousLine + offset, currentLine + offset)
@@ -118,12 +118,12 @@ function computeAnchorNeighbors(anchorLines: ReadonlySet<number>, lineCount: num
   const neighbors = new Map<number, AnchorNeighbors>()
   for (let i = 0; i < sorted.length; ) {
     let j = i
-    while (j + 1 < sorted.length && sorted[j + 1]! === sorted[j]! + 1) j++
-    const start = sorted[i]!
-    const end = sorted[j]!
+    while (j + 1 < sorted.length && (sorted[j + 1] ?? 0) === (sorted[j] ?? 0) + 1) j++
+    const start = sorted[i] ?? 0
+    const end = sorted[j] ?? 0
     const before = start - 1 >= 1 && start - 1 <= lineCount ? start - 1 : undefined
     const after = end + 1 <= lineCount ? end + 1 : undefined
-    for (let k = i; k <= j; k++) neighbors.set(sorted[k]!, { before, after })
+    for (let k = i; k <= j; k++) neighbors.set(sorted[k] ?? 0, { before, after })
     i = j + 1
   }
   return neighbors
@@ -210,12 +210,12 @@ function remapEditsToCurrent(previousText: string, currentText: string, edits: r
     if (mapped === undefined) return null
     offsets.push(mapped - line)
     return mapped
-  };
+  }
 
   const mapAnchor = (anchor: Anchor): Anchor | null => {
     const line = mapLine(anchor.line)
     return line === null ? null : { line }
-  };
+  }
 
   const remapped: Edit[] = []
   for (const edit of edits) {
@@ -223,13 +223,13 @@ function remapEditsToCurrent(previousText: string, currentText: string, edits: r
       const anchor = mapAnchor(edit.anchor)
       if (anchor === null) return null
       remapped.push({ ...edit, anchor })
-      continue;
+      continue
     }
     if (edit.kind === 'block') {
       const anchor = mapAnchor(edit.anchor)
       if (anchor === null) return null
       remapped.push({ ...edit, anchor })
-      continue;
+      continue
     }
     if (edit.kind === 'cut') {
       // Map every captured line; an unmapped interior line means the
@@ -244,7 +244,7 @@ function remapEditsToCurrent(previousText: string, currentText: string, edits: r
         end = mapped
       }
       remapped.push({ ...edit, range: { start: { line: start }, end: { line: end } } })
-      continue;
+      continue
     }
     if (edit.kind === 'paste') {
       let blockStart = edit.blockStart
@@ -267,12 +267,12 @@ function remapEditsToCurrent(previousText: string, currentText: string, edits: r
           at: { kind: 'span', range: { start: { line: start }, end: { line: end } } },
           ...(blockStart === undefined ? {} : { blockStart }),
         })
-        continue;
+        continue
       }
       const cursor = edit.at.cursor
       if (cursor.kind !== 'before_anchor' && cursor.kind !== 'after_anchor') {
         remapped.push(blockStart === edit.blockStart ? edit : { ...edit, ...(blockStart === undefined ? {} : { blockStart }) })
-        continue;
+        continue
       }
       const anchor = mapAnchor(cursor.anchor)
       if (anchor === null) return null
@@ -281,32 +281,30 @@ function remapEditsToCurrent(previousText: string, currentText: string, edits: r
         at: { kind: 'gap', cursor: { kind: cursor.kind, anchor } },
         ...(blockStart === undefined ? {} : { blockStart }),
       })
-      continue;
+      continue
     }
-    if (edit.kind === 'insert') {
-      let blockStart = edit.blockStart
-      if (blockStart !== undefined) {
-        const mappedBlockStart = mapLine(blockStart)
-        if (mappedBlockStart === null) return null
-        blockStart = mappedBlockStart
-      }
-      const cursor = edit.cursor
-      if (cursor.kind !== 'before_anchor' && cursor.kind !== 'after_anchor') {
-        remapped.push(blockStart === edit.blockStart ? edit : { ...edit, ...(blockStart === undefined ? {} : { blockStart }) })
-        continue;
-      }
-      const anchor = mapAnchor(cursor.anchor)
-      if (anchor === null) return null
-      remapped.push({
-        ...edit,
-        cursor: { kind: cursor.kind, anchor },
-        ...(blockStart === undefined ? {} : { blockStart }),
-      })
+    let blockStart = edit.blockStart
+    if (blockStart !== undefined) {
+      const mappedBlockStart = mapLine(blockStart)
+      if (mappedBlockStart === null) return null
+      blockStart = mappedBlockStart
     }
+    const cursor = edit.cursor
+    if (cursor.kind !== 'before_anchor' && cursor.kind !== 'after_anchor') {
+      remapped.push(blockStart === edit.blockStart ? edit : { ...edit, ...(blockStart === undefined ? {} : { blockStart }) })
+      continue
+    }
+    const anchor = mapAnchor(cursor.anchor)
+    if (anchor === null) return null
+    remapped.push({
+      ...edit,
+      cursor: { kind: cursor.kind, anchor },
+      ...(blockStart === undefined ? {} : { blockStart }),
+    })
   }
 
   if (offsets.length === 0) return null
-  const firstOffset = offsets[0]!
+  const firstOffset = offsets[0] ?? 0
   if (!offsets.every(offset => offset === firstOffset)) return null
   return { edits: remapped, offset: firstOffset }
 }

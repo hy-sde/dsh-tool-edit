@@ -5,7 +5,7 @@
  * Ported from @oh-my-pi/pi-coding-agent (https://github.com/can1357/oh-my-pi). MIT License. Copyright (c) 2025 Mario Zechner, Copyright (c) 2025-2026 Can Bölük.
  */
 
-/** Guidance embedded for the `hashline` mode (from packages/hashline/src/prompt.md). */
+/** Guidance embedded for the `hashline` mode (from hashline/src/prompt.md). */
 export const HASHLINE_GUIDANCE = `
 <guidance>
 Section: [PATH#TAG]; TAG: 4-hex snapshot from latest read/search, REQUIRED each section.
@@ -31,7 +31,9 @@ export const EDIT_TOOL_DESCRIPTION = `
 Single-file edit tool. The mode is fixed by configuration, not per-call;
 the appropriate argument shape is documented in <parameters>.
 
-Mode "replace" (default) — literal string replacement with fuzzy whitespace
+Mode "hashline" (default) — a line-anchored patch language. ${HASHLINE_GUIDANCE}
+
+Mode "replace" — literal string replacement with fuzzy whitespace
 matching. MUST use the smallest old_string uniquely identifying the change.
 A non-unique old_string MUST add context or use replace_all: true for all
 occurrences. Renaming a string across the file → replace_all: true.
@@ -57,8 +59,6 @@ Mode "apply_patch" — Codex-style envelope:
 *** Delete File: <path>
 *** End Patch
 File references relative, never absolute. New-file lines MUST start \`+\`.
-
-Mode "hashline" — a line-anchored patch language. ${HASHLINE_GUIDANCE}
 
 <parameters>
 replace mode: { path: string, old_string: string, new_string: string, replace_all?: boolean }

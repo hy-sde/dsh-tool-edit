@@ -120,17 +120,17 @@ const TOP_LEVEL_SNAPSHOT_ROW_RE = /^\s*([1-9]\d*)[:|](.*)$/
 function parseTopLevelSnapshotRow(text: string): { line: number; text: string } | null {
   const match = TOP_LEVEL_SNAPSHOT_ROW_RE.exec(text)
   if (match === null) return null
-  const line = Number(match[1]!)
+  const line = Number(match[1] ?? NaN)
   if (!Number.isSafeInteger(line)) return null
-  return { line, text: match[2]! }
+  return { line, text: match[2] ?? '' }
 }
 const TOP_LEVEL_BARE_RANGE_HEADER_RE = /^\s*([1-9]\d*)(?:\s|[-.=…])+([1-9]\d*)\s*:\s*$/
 
 function parseTopLevelBareRangeHeader(text: string): ParsedRange | null {
   const match = TOP_LEVEL_BARE_RANGE_HEADER_RE.exec(text)
   if (match === null) return null
-  const start = Number(match[1]!)
-  const end = Number(match[2]!)
+  const start = Number(match[1] ?? NaN)
+  const end = Number(match[2] ?? NaN)
   if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end)) return null
   return { start: { line: start }, end: { line: end } }
 }
@@ -231,34 +231,34 @@ export class Executor {
     switch (token.kind) {
       case 'envelope-begin':
         this.#consumePendingSkippableComments()
-        return;
+        return
       case 'envelope-end':
         this.#consumePendingSkippableComments()
         this.#terminated = true
-        return;
+        return
       case 'abort':
         this.#terminated = true
-        return;
+        return
       case 'header':
         this.#consumePendingSkippableComments()
         this.#flushPending()
-        return;
+        return
       case 'blank':
         this.#consumePendingSkippableComments()
         this.#handleBlank('', token.lineNum)
-        return;
+        return
       case 'payload-literal':
         this.#consumePendingSkippableComments()
         this.#handleLiteralPayload(token.text, token.lineNum)
-        return;
+        return
       case 'raw':
         if (this.#pending === undefined && isSkippableCommentLine(token.text)) {
           this.#skippableComments.push({ text: token.text, lineNum: token.lineNum })
-          return;
+          return
         }
         this.#consumePendingSkippableComments()
         this.#handleRaw(token.text, token.lineNum)
-        return;
+        return
       case 'op-block': {
         this.#discardPendingSkippableComments()
         const target = token.target
@@ -281,12 +281,12 @@ export class Executor {
         if (target.kind === 'rem') {
           this.#flushPending()
           this.#setFileOp({ kind: 'rem' }, token.lineNum)
-          return;
+          return
         }
         if (target.kind === 'move') {
           this.#flushPending()
           this.#setFileOp({ kind: 'move', dest: target.dest }, token.lineNum)
-          return;
+          return
         }
         this.#flushPending()
         this.#pending = {
@@ -296,7 +296,7 @@ export class Executor {
           hadColon: token.hadColon,
           deferredBlanks: [],
         }
-        return;
+        return
       }
     }
   }
@@ -391,11 +391,11 @@ export class Executor {
         hunks.set(lineNum, hunk)
       }
       return hunk
-    };
+    }
     for (const edit of this.#edits) {
       if (edit.kind === 'cut') {
         hunkFor(edit.lineNum).clipboardDependent = true
-        continue;
+        continue
       }
       if (edit.kind === 'paste' && edit.at.kind === 'span') {
         const hunk = hunkFor(edit.lineNum)
@@ -412,7 +412,7 @@ export class Executor {
     const dropped = new Set<number>()
     const claim = (hunk: ConcreteHunk): void => {
       for (const line of hunk.sourceLines) ownerByLine.set(line, hunk)
-    };
+    }
     for (const hunk of hunks.values()) {
       if (hunk.sourceLines.size === 0) continue
       const overlaps = new Set<ConcreteHunk>()
@@ -425,7 +425,7 @@ export class Executor {
       }
       if (overlaps.size === 0) {
         claim(hunk)
-        continue;
+        continue
       }
       const previous = overlaps.size === 1 ? overlaps.values().next().value : undefined
       const exact =
@@ -483,7 +483,7 @@ export class Executor {
     if (this.#pending) {
       if (text.trim().length === 0) {
         this.#handleBlank(text, lineNum)
-        return;
+        return
       }
       const noBodyOnRaw = bodylessTargetMessage(this.#pending.target, this.#pending.hadColon)
       if (noBodyOnRaw !== null) throw new Error(`line ${lineNum}: ${noBodyOnRaw}`)
@@ -502,7 +502,7 @@ export class Executor {
       // sits next to an unprefixed sibling. Rows with an explicit "+" go
       // through #handleLiteralPayload and are never bare, never stripped.
       this.#pending.payloads.push(row)
-      return;
+      return
     }
     if (text.trim().length === 0) return
     const bareRange = parseTopLevelBareRangeHeader(text)
@@ -597,7 +597,7 @@ export class Executor {
     if (allBulletShaped && (!hasExplicit || hasExplicitBullet)) {
       if (!this.#warnings.includes(MINUS_BULLET_AUTO_PIPED_WARNING))
         this.#warnings.push(MINUS_BULLET_AUTO_PIPED_WARNING)
-      return;
+      return
     }
     if (hasExplicit && !allBulletShaped) {
       for (let i = payloads.length - 1; i >= 0; i--) {
@@ -713,11 +713,11 @@ export class Executor {
     if (target.kind === 'rem' || target.kind === 'move') return
     if (target.kind === 'cut') {
       this.#pushCut(target.range, lineNum, target.register)
-      return;
+      return
     }
     if (target.kind === 'cut_block') {
       this.#pushBlock(target.anchor, [], lineNum, 'cut', target.register)
-      return;
+      return
     }
     // Span targets: body writes, register pastes over the span; the
     // anonymous register never pastes over a span (too easy to fire by
@@ -729,7 +729,7 @@ export class Executor {
           target.register,
           lineNum,
         )
-        return;
+        return
       }
       if (payloads.length === 0) {
         if (!hadColon) throw new Error(`line ${lineNum}: ${COLONLESS_SPAN_PUT}`)
@@ -742,12 +742,12 @@ export class Executor {
       const cursor: Cursor = { kind: 'before_anchor', anchor: { ...target.range.start } }
       this.#emitPayloadRows(cursor, payloads, lineNum, 'replacement')
       this.#pushDeleteRange(target.range, lineNum)
-      return;
+      return
     }
     if (target.kind === 'block') {
       if (target.register !== undefined) {
         this.#pushBlock(target.anchor, [], lineNum, undefined, target.register)
-        return;
+        return
       }
       if (payloads.length === 0) {
         if (!hadColon) throw new Error(`line ${lineNum}: ${COLONLESS_SPAN_PUT}`)
@@ -758,18 +758,18 @@ export class Executor {
         return
       }
       this.#pushBlock(target.anchor, payloads, lineNum)
-      return;
+      return
     }
     // Gap targets: body inserts, register pastes, and the colonless
     // bodyless form is an anonymous paste.
     if (target.kind === 'insert_after_block') {
       if (target.register !== undefined || (!hadColon && payloads.length === 0)) {
         this.#pushBlock(target.anchor, [], lineNum, 'paste_after', target.register)
-        return;
+        return
       }
       if (payloads.length === 0) throw new Error(`line ${lineNum}: ${EMPTY_INSERT}`)
       this.#pushBlock(target.anchor, payloads, lineNum, 'insert_after')
-      return;
+      return
     }
     const cursor: Cursor =
       target.kind === 'insert_before'
@@ -781,7 +781,7 @@ export class Executor {
             : { kind: 'eof' }
     if (target.register !== undefined || (!hadColon && payloads.length === 0)) {
       this.#pushPaste({ kind: 'gap', cursor }, target.register, lineNum)
-      return;
+      return
     }
     if (payloads.length === 0) throw new Error(`line ${lineNum}: ${EMPTY_INSERT}`)
     this.#emitPayloadRows(cursor, payloads, lineNum)

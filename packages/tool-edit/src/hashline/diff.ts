@@ -130,7 +130,11 @@ function applyPreviewEdits(args: {
     clipboard,
   })
   if (recovered) {
-    return { text: recovered.text, ...(recovered.firstChangedLine === undefined ? {} : { firstChangedLine: recovered.firstChangedLine }), warnings: recovered.warnings }
+    return {
+      text: recovered.text,
+      ...(recovered.firstChangedLine === undefined ? {} : { firstChangedLine: recovered.firstChangedLine }),
+      warnings: recovered.warnings,
+    }
   }
   throw createMismatchError(section, absolutePath, normalized, snapshots, expected)
 }

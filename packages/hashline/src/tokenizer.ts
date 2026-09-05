@@ -175,7 +175,7 @@ function scanRangeSeparator(line: string, index: number, end: number): number | 
     ) {
       cursor++
       consumedSeparator = true
-      continue;
+      continue
     }
     break
   }
@@ -198,11 +198,11 @@ function scanDanglingSeparator(line: string, index: number, end: number): number
     if (code === CHAR_HYPHEN || code === CHAR_DOT || code === CHAR_EQUALS || code === CHAR_ELLIPSIS) {
       sawSeparatorChar = true
       cursor++
-      continue;
+      continue
     }
     if (isWhitespaceCode(code)) {
       cursor++
-      continue;
+      continue
     }
     break
   }
@@ -419,7 +419,7 @@ function scanMoveDest(line: string, index: number, end: number): string | null {
       const ch = line[next]
       if (ch === '\\' && next + 1 < end) {
         next += 2
-        continue;
+        continue
       }
       if (ch === quote) {
         const after = skipWhitespace(line, next + 1, end)
@@ -503,7 +503,7 @@ function tryParseHeader(line: string): { path: string; fileHash?: string } | nul
     for (let probe = trailingHashStart + 1; probe < bodyEnd; probe++) {
       if (!isHexDigitCode(line.charCodeAt(probe))) {
         allHex = false
-        break;
+        break
       }
     }
     if (allHex) {

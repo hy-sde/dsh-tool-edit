@@ -1,5 +1,9 @@
 /**
- * Stub: the original used a native tree-sitter parser (enclosingBlockBoundaries) for replacement-boundary repair and parse probing. Without it this module withholds structural proof (returns [] / false), which is the documented graceful-degradation path for unrecognized languages — identical semantics to running the original without native support.
+ * Stub: the original used a native tree-sitter parser (enclosingBlockBoundaries)
+ * for replacement-boundary repair and parse probing. Without it this module
+ * withholds structural proof (returns [] / false), which is the documented
+ * graceful-degradation path for unrecognized languages — identical semantics
+ * to running the original without native support.
  * Ported from @oh-my-pi/hashline (https://github.com/can1357/oh-my-pi). MIT License. Copyright (c) 2025 Mario Zechner, Copyright (c) 2025-2026 Can Bölük.
  */
 

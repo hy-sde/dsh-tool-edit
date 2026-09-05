@@ -117,7 +117,7 @@ export function resolveBlockEdits(
   for (const edit of edits) {
     if (edit.kind !== 'block') {
       resolved.push(edit)
-      continue;
+      continue
     }
     const op: BlockOp = edit.mode ?? 'replace'
     const span = resolver ? resolver({ path, text, line: edit.anchor.line }) : null
@@ -147,7 +147,7 @@ export function resolveBlockEdits(
             lineNum: edit.lineNum,
             index: synthIndex++,
           })
-          continue;
+          continue
         }
         options.onWarning?.(
           isCloser
@@ -208,7 +208,7 @@ export function resolveBlockEdits(
         index: synthIndex++,
         blockStart: span.start,
       })
-      continue;
+      continue
     }
     if (op === 'cut') {
       // Capture the resolved span before deleting it line-by-line.
@@ -253,7 +253,7 @@ export function resolveBlockEdits(
         lineNum: edit.lineNum,
         index: synthIndex++,
       })
-      continue;
+      continue
     }
     // Body-backed block replace (`PUT N*:` + body): replacement inserts at
     // `span.start`, then one delete per line across the resolved span.

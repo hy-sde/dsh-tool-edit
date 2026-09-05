@@ -142,7 +142,7 @@ describe('hashline parser — range-anchor contracts', () => {
 
 describe('hashline input splitter', () => {
   it('extracts path, snapshot tag, and diff body from bracket headers', () => {
-    const input = ['[src/foo.ts#1A2B]', `${sameLineRange(tag(2))}`, repl('BBB')].join('\n')
+    const input = ['[src/foo.ts#1A2B]', sameLineRange(tag(2)), repl('BBB')].join('\n')
     expect(splitHashlineInput(input)).toEqual({
       path: 'src/foo.ts',
       fileHash: '1A2B',
@@ -197,10 +197,10 @@ describe('Patcher preflight', () => {
     const bTag = snapshots.record('b.ts', 'bbb\n')
     const input = [
       formatHashlineHeader('a.ts', aTag),
-      `${sameLineRange(tag(1))}`,
+      sameLineRange(tag(1)),
       repl('AAA'),
       formatHashlineHeader('b.ts', bTag),
-      `${sameLineRange(tag(1))}`,
+      sameLineRange(tag(1)),
       repl('BBB'),
     ].join('\n')
 

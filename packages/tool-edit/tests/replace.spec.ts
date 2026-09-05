@@ -25,7 +25,7 @@ afterEach(async () => {
 function agent(ctx: Context, cwd: string): Agent {
   const id = SessionId(`tool-edit-owner-${callNumber}`)
   const scope = ctx.plugin(() => {})
-  const session = Session.create(id, [], { version: 0, id, createdAt: 0, cwd })
+  const session = Session.create(id, [], { version: 0, id, createdAt: 0, cwd, isSeeded: false })
   const value: Agent = {
     id,
     options: {},
@@ -270,7 +270,7 @@ describe('tool-edit (replace mode)', () => {
   })
 
   it('applies a Codex apply-patch envelope in apply_patch mode', async () => {
-    const { ctx, root, owner } = await setup()
+    const { ctx, root, owner } = await setup({ mode: 'apply_patch' })
     const sample = join(root, 'codex.txt')
     await writeFile(sample, 'alpha\nbeta\ngamma\n')
 

@@ -76,17 +76,17 @@ export abstract class Filesystem {
   abstract writeText(path: string, content: string): Promise<WriteResult>
 
   /** Delete the file at `path`. Default: not supported. */
-  async delete(path: string): Promise<void> {
-    throw new Error(`Filesystem does not support delete: ${path}`)
+  delete(path: string): Promise<void> {
+    return Promise.reject(new Error(`Filesystem does not support delete: ${path}`))
   }
 
   /**
 	 * Move/rename `from` to `to`. When `content` is provided the destination
 	 * receives that text; otherwise implementations may preserve the source bytes.
 	 */
-  async move(from: string, to: string, content?: string): Promise<void> {
+  move(from: string, to: string, content?: string): Promise<void> {
     void content
-    throw new Error(`Filesystem does not support move: ${from} -> ${to}`)
+    return Promise.reject(new Error(`Filesystem does not support move: ${from} -> ${to}`))
   }
 
   /** Return true when the path exists and can be read. Default: probe via {@link readText}. */
@@ -140,31 +140,33 @@ export class InMemoryFilesystem extends Filesystem {
     }
   }
 
-  async readText(path: string): Promise<string> {
+  readText(path: string): Promise<string> {
     const text = this.#files.get(path)
-    if (text === undefined) throw new NotFoundError(path)
-    return text
+    if (text === undefined) return Promise.reject(new NotFoundError(path))
+    return Promise.resolve(text)
   }
 
-  async writeText(path: string, content: string): Promise<WriteResult> {
+  writeText(path: string, content: string): Promise<WriteResult> {
     this.#files.set(path, content)
-    return { text: content }
+    return Promise.resolve({ text: content })
   }
 
-  override async delete(path: string): Promise<void> {
-    if (!this.#files.delete(path)) throw new NotFoundError(path)
+  override delete(path: string): Promise<void> {
+    if (!this.#files.delete(path)) return Promise.reject(new NotFoundError(path))
+    return Promise.resolve()
   }
 
-  override async move(from: string, to: string, content?: string): Promise<void> {
+  override move(from: string, to: string, content?: string): Promise<void> {
     const existing = this.#files.get(from)
-    if (existing === undefined) throw new NotFoundError(from)
+    if (existing === undefined) return Promise.reject(new NotFoundError(from))
     const finalContent = content ?? existing
     this.#files.set(to, finalContent)
     this.#files.delete(from)
+    return Promise.resolve()
   }
 
-  override async exists(path: string): Promise<boolean> {
-    return this.#files.has(path)
+  override exists(path: string): Promise<boolean> {
+    return Promise.resolve(this.#files.has(path))
   }
 
   /** Synchronous helper for setting up fixtures without awaiting. */
@@ -231,7 +233,7 @@ export class NodeFilesystem extends Filesystem {
     if (content !== undefined) {
       await fs.writeFile(to, content, 'utf-8')
       await this.delete(from)
-      return;
+      return
     }
     try {
       await fs.rename(from, to)

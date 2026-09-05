@@ -69,8 +69,11 @@ const SEEN_LINE_REVEAL_MAX_COLUMNS = 512
 export interface PatcherOptions {
   /** Storage backend used for all reads and writes. */
   fs: Filesystem
-  /** Snapshot store that minted and resolves hashline section tags. Required. */
-  snapshots: SnapshotStore
+  /**
+   * Snapshot store that minted and resolves hashline section tags. The
+   * constructor throws when omitted (a tag is an opaque store pointer).
+   */
+  snapshots?: SnapshotStore
   /**
 	 * Resolves `replace_block N:` anchors to concrete line spans via tree-sitter.
 	 * Optional: when omitted, any `replace_block N:` edit throws on apply (the
@@ -252,7 +255,9 @@ export class Patcher {
 
     // Single-section fast path.
     if (patch.sections.length === 1) {
-      const prepared = await this.prepare(patch.sections[0]!, clipboard)
+      const section = patch.sections[0]
+      if (section === undefined) throw new Error('internal error: single-section patch has no section')
+      const prepared = await this.prepare(section, clipboard)
       const result = await this.commit(prepared)
       if (this.clipboard !== undefined) commitClipboard(clipboard, this.clipboard)
       return { sections: [result] }
@@ -279,23 +284,29 @@ export class Patcher {
 
     const results: PatchSectionResult[] = []
     for (let index = 0; index < prepared.length; index++) {
+      const entry = prepared[index]
+      if (entry === undefined) throw new Error('internal error: prepared section missing')
       try {
-        results.push(await this.commit(prepared[index]!))
+        results.push(await this.commit(entry))
       } catch (error) {
         // A mid-batch write failure leaves earlier sections on disk with no
         // rollback; report exactly which sections landed so the caller can
         // re-issue only the missing ones instead of double-applying.
-        const written = prepared.slice(0, index).map(entry => entry.section.path)
-        const notWritten = prepared.slice(index + 1).map(entry => entry.section.path)
+        const written = prepared.slice(0, index).map(item => item.section.path)
+        const notWritten = prepared.slice(index + 1).map(item => item.section.path)
         const message = error instanceof Error ? error.message : String(error)
         throw new Error(
-          `Failed to write ${prepared[index]!.section.path}: ${message}` +
+          `Failed to write ${entry.section.path}: ${message}` +
 						(written.length > 0 ? ` Sections already written: ${written.join(', ')}.` : '') +
 						(notWritten.length > 0 ? ` Sections not written: ${notWritten.join(', ')}.` : ''),
           { cause: error },
         )
       }
-      if (this.clipboard !== undefined) commitClipboard(sectionStates[index]!, this.clipboard)
+      if (this.clipboard !== undefined) {
+        const state = sectionStates[index]
+        if (state === undefined) throw new Error('internal error: section clipboard state missing')
+        commitClipboard(state, this.clipboard)
+      }
     }
     return { sections: results }
   }
@@ -457,7 +468,8 @@ export class Patcher {
       ),
     ].filter(candidate => this.fs.canonicalPath(candidate) !== originalCanonicalPath)
     if (candidates.length !== 1) return null
-    const resolved = candidates[0]!
+    const [resolved] = candidates
+    if (resolved === undefined) return null
     return { section: section.withPath(resolved), canonicalPath: this.fs.canonicalPath(resolved) }
   }
 
@@ -625,7 +637,7 @@ export class Patcher {
     if (!seen || seen.size === 0) return
     const unseen = section.collectAnchorLines().filter(line => !seen.has(line))
     if (unseen.length === 0) return
-    const sourceLines = matchedSnapshot?.text.split('\n') ?? []
+    const sourceLines = matchedSnapshot.text.split('\n')
     const revealed: RevealedLine[] = []
     const revealCount = Math.min(unseen.length, SEEN_LINE_REVEAL_CAP)
     let columnTruncated = false

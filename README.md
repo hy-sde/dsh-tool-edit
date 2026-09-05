@@ -46,7 +46,7 @@ pnpm install --global @deepseek-ai/dsh
 
 Both packages are published on the npm registry under the `hy-sde-org`
 organization (`@hy-sde-org/dsh-hashline` and `@hy-sde-org/dsh-tool-edit`,
-version `0.1.2-alpha.1`). Install the plugin straight from npm — the registry
+version `0.1.2-rc.1`). Install the plugin straight from npm — the registry
 resolves the hashline library dependency and the DeepSeek Harness peer
 packages automatically, no tarballs, no ordering:
 
@@ -71,13 +71,12 @@ npm install @hy-sde-org/dsh-tool-edit   # or pnpm add / yarn add
 npm install @hy-sde-org/dsh-hashline    # the engine, if you need it directly
 ```
 
-> **Registry notes.** `latest` is `0.1.2-alpha.1` after the next publish. The
-> `0.1.2-alpha.1` bundle (like `0.1.0-rc.7` before it) uses the minimal-patch
-> posture that boots on official harness releases; the earlier `0.1.0-rc.6` and
-> `0.1.0-rc.5` of `dsh-tool-edit` were published before the rc.7 bundle posture
-> (they mounted a self-contained fs realm that requires the
-> `enableEdit` harness feature and fails boot on stock rc.7/rc.8) — do not
-> install them on an official harness.
+> **Registry notes.** `latest` is `0.1.2-rc.1` after the next publish. The
+> `0.1.2-rc.1` bundle uses the minimal-patch posture that boots on official
+> harness releases; the earlier `0.1.x` releases of `dsh-tool-edit` were
+> published before the rc.7 bundle posture (they mounted a self-contained fs
+> realm that requires the `enableEdit` harness feature and fails boot on stock
+> rc.7/rc.8) — do not install them on an official harness.
 
 ### From the git checkout (pre-publish / development)
 
@@ -197,7 +196,8 @@ Configure the tool by patching the `tool-edit` row in your preset by id:
 ## Tool modes
 
 The single `edit` tool dispatches on argument shape (or is pinned to one mode
-via `config.mode`):
+via `config.mode`; the default is `hashline` for `input` payloads, while
+`replace`/`patch` argument shapes keep routing automatically):
 
 | mode | argument shape | notes |
 |---|---|---|
@@ -224,7 +224,7 @@ via `config.mode`):
 ```bash
 pnpm install
 pnpm -r check      # strict typecheck of both packages
-pnpm -r test       # hashline 235 tests + tool-edit 20 tests (incl. embedded LSP client)
+pnpm -r test       # hashline 246 tests + tool-edit 23 tests (incl. embedded LSP client)
 pnpm -r build      # tsc -> dist
 bash scripts/release-public.sh --check      # pre-publish validation
 bash scripts/release-public.sh --publish    # publish hashline then tool-edit

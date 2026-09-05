@@ -66,12 +66,12 @@ function appendAddedRun(output: string[], run: string[], edgeLines: number): voi
   const collapseThreshold = edgeLines * 2 + 1
   if (run.length <= collapseThreshold) {
     for (const text of run) appendPreviewLine(output, text)
-    return;
+    return
   }
 
-  for (let i = 0; i < edgeLines; i++) appendPreviewLine(output, run[i]!)
+  for (let i = 0; i < edgeLines; i++) appendPreviewLine(output, run[i] ?? '')
   appendPreviewLine(output, PREVIEW_ELISION_MARKER)
-  for (let i = run.length - edgeLines; i < run.length; i++) appendPreviewLine(output, run[i]!)
+  for (let i = run.length - edgeLines; i < run.length; i++) appendPreviewLine(output, run[i] ?? '')
 }
 
 export function buildCompactDiffPreview(diff: string, options: CompactDiffOptions = {}): CompactDiffPreview {
@@ -85,7 +85,7 @@ export function buildCompactDiffPreview(diff: string, options: CompactDiffOption
   const flushAddedRun = (): void => {
     appendAddedRun(formatted, addedRun, addedRunContext)
     addedRun.length = 0
-  };
+  }
 
   // External diff producers number `+` lines with the post-edit line number,
   // `-` lines with the pre-edit line number, and context lines with the
@@ -97,24 +97,24 @@ export function buildCompactDiffPreview(diff: string, options: CompactDiffOption
     if (!parsed) {
       flushAddedRun()
       appendPreviewLine(formatted, line)
-      continue;
+      continue
     }
 
     switch (parsed.kind) {
       case '+': {
         addedLines++
         addedRun.push(`${parsed.lineNumber}:${parsed.content}`)
-        break;
+        break
       }
       case '-':
         flushAddedRun()
         removedLines++
-        break;
+        break
       default: {
         flushAddedRun()
         const newLineNumber = parsed.lineNumber + addedLines - removedLines
         appendPreviewLine(formatted, `${newLineNumber}:${parsed.content}`)
-        break;
+        break
       }
     }
   }

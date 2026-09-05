@@ -34,7 +34,11 @@ export const NOOP_GUARD_SLOT: unique symbol = Symbol('dsh.tool-edit.noopLoopGuar
  */
 export const NOOP_HARD_LIMIT = 3
 
-type NoopLoopGuardOwner = { [NOOP_GUARD_SLOT]?: NoopLoopGuard }
+type NoopLoopGuardOwner = { [NOOP_GUARD_SLOT]?: NoopLoopGuard | undefined }
+
+function newNoopGuard(): NoopLoopGuard {
+  return { entries: new Map() }
+}
 
 /** Result of recording one no-op against the guard. */
 export interface NoopRecordResult {
@@ -55,7 +59,7 @@ export function recordNoopEdit(
   canonicalPath: string,
   inputHash: string,
 ): NoopRecordResult {
-  const guard = (owner[NOOP_GUARD_SLOT] ??= { entries: new Map() })
+  const guard = (owner[NOOP_GUARD_SLOT] ??= newNoopGuard())
   const prev = guard.entries.get(canonicalPath)
   const count = prev && prev.hash === inputHash ? prev.count + 1 : 1
   guard.entries.set(canonicalPath, { hash: inputHash, count })

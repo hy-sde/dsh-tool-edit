@@ -116,15 +116,15 @@ export const ABORT_MARKER = '*** Abort'
 
 /** Exact-range duplicate hunks were normalized to the final hunk. */
 export const REPLACE_PAIR_COALESCED_WARNING =
-  'Multiple hunks targeted the same exact range; kept only the last. Issue one `PUT` or `CUT` hunk per range.';
+  'Multiple hunks targeted the same exact range; kept only the last. Issue one `PUT` or `CUT` hunk per range.'
 
 /** Replacement body indentation was aligned from unchanged structural rows. */
 export const REPLACEMENT_INDENT_AUTO_SHIFT_WARNING =
-  'Auto-indented a replacement body to match unchanged structural rows in its source range.';
+  'Auto-indented a replacement body to match unchanged structural rows in its source range.'
 
 /** Bare body rows auto-converted to literal `+` rows. */
 export const BARE_BODY_AUTO_PIPED_WARNING =
-  'Auto-prefixed bare body row(s) with `+`. Body rows must be `+TEXT` literal lines.';
+  'Auto-prefixed bare body row(s) with `+`. Body rows must be `+TEXT` literal lines.'
 
 /** Top-level read-output rows recovered as single-line replacements. */
 export const SNAPSHOT_ROWS_AUTO_PUT_WARNING = `Recovered top-level \`N:TEXT\` snapshot row(s) as single-line \`PUT N${HL_RANGE_SEP}N:\` replacements. Use explicit \`PUT\` headers for reliable edits.`
@@ -161,7 +161,7 @@ export const BARE_RANGE_AUTO_PUT_WARNING = `Recovered a bare \`N${HL_RANGE_SEP}M
 
 /** Copied read-output elision rows were ignored rather than written as source. */
 export const READ_METADATA_IGNORED_WARNING =
-  'Ignored copied read-output elision row(s). Re-read elided ranges before editing them.';
+  'Ignored copied read-output elision row(s). Re-read elided ranges before editing them.'
 
 /** Empty span/block PUT recovered as a delete-only edit. */
 export const EMPTY_PUT_AUTO_CUT_WARNING = `Interpreted an empty \`PUT\` body as deletion. Use \`CUT N${HL_RANGE_SEP}M\` or \`CUT N*\` for bodyless deletes.`
@@ -175,14 +175,14 @@ export const CUT_COLON_IGNORED_WARNING = `Ignored a trailing \`:\` on bodyless \
  * (`- item`) and the body has no unified-diff `+new` counterpart rows.
  */
 export const MINUS_BULLET_AUTO_PIPED_WARNING =
-  'Auto-prefixed bare `- ` bullet row(s) as literal content. `-` rows never remove lines — the range does that; always prefix literal body rows with `+`: `+- item`.';
+  'Auto-prefixed bare `- ` bullet row(s) as literal content. `-` rows never remove lines — the range does that; always prefix literal body rows with `+`: `+- item`.'
 /** Unified-diff old rows were discarded; explicit `+` rows are final content. */
 export const DIFF_OLD_ROWS_IGNORED_WARNING =
-  'Ignored unified-diff `-old` row(s); the range already removes old content, so only `+new` rows were kept.';
+  'Ignored unified-diff `-old` row(s); the range already removes old content, so only `+new` rows were kept.'
 
 /** Unified-diff-style `-` row in a hunk body. */
 export const MINUS_ROW_REJECTED =
-  '`-` rows are not valid; the range already names the lines being changed. For Markdown bullets or other literal `-` lines, prefix the literal row with `+`: `+- item`.';
+  '`-` rows are not valid; the range already names the lines being changed. For Markdown bullets or other literal `-` lines, prefix the literal row with `+`: `+- item`.'
 
 /** Optional source-aware suggestions appended to block-anchor diagnostics. */
 export interface BlockDiagnosticSuggestions {
@@ -243,7 +243,7 @@ export function blockUnresolvedMessage(
 
 /** Block-anchored edit reached a path with no {@link BlockResolver} wired in. */
 export const BLOCK_RESOLVER_UNAVAILABLE =
-  'Block locators (`N*` in `PUT N*:`, `PUT >N*`, `CUT N*`) are not available here (no block resolver configured). Use a concrete line range.';
+  'Block locators (`N*` in `PUT N*:`, `PUT >N*`, `CUT N*`) are not available here (no block resolver configured). Use a concrete line range.'
 
 /**
  * An after-block op anchored on a closing-delimiter line, lowered to its
@@ -369,34 +369,34 @@ export function editBrokeParseWarning(firstChangedLine: number | undefined): str
  * `resolveBlockEdits` must run first.
  */
 export const UNRESOLVED_BLOCK_INTERNAL =
-  'internal error: unresolved block edit reached the applier (resolveBlockEdits was not run).';
+  'internal error: unresolved block edit reached the applier (resolveBlockEdits was not run).'
 
 /** Internal invariant: clipboard edits must be concrete before application. */
 export const UNRESOLVED_CLIPBOARD_INTERNAL =
-  'internal error: unresolved clipboard edit reached the applier (resolveClipboardEdits was not run).';
+  'internal error: unresolved clipboard edit reached the applier (resolveClipboardEdits was not run).'
 
 /** `REM` received a body row or coexists with line edits. */
 export const REM_TAKES_NO_BODY =
-  '`REM` deletes the whole file and takes no body rows or line ops. Issue it alone under the header.';
+  '`REM` deletes the whole file and takes no body rows or line ops. Issue it alone under the header.'
 
 /** `MV` received a body row. */
 export const MOVE_TAKES_NO_BODY =
-  '`MV DEST` does not take body rows. Put line edits above the `MV` row; the destination path follows `MV` on the same line.';
+  '`MV DEST` does not take body rows. Put line edits above the `MV` row; the destination path follows `MV` on the same line.'
 
 /** `CUT` hunk received a body row. */
 export const CUT_TAKES_NO_BODY = `\`CUT\` deletes (and captures) the named lines and takes no body rows. To write new content, use \`PUT N${HL_RANGE_SEP}M:\` with \`+TEXT\` rows.`
 
 /** Register `PUT` header carried a `:`. */
 export const COLON_ON_REGISTER_PUT =
-  '`PUT … @name` pastes the register and never takes `:` — the colon promises body rows. Drop the colon (`PUT >40 @name`), or drop `@name` and write `+TEXT` body rows.';
+  '`PUT … @name` pastes the register and never takes `:` — the colon promises body rows. Drop the colon (`PUT >40 @name`), or drop `@name` and write `+TEXT` body rows.'
 
 /** Register `PUT` hunk received a body row. */
 export const REGISTER_PUT_TAKES_NO_BODY =
-  'A register `PUT` pastes captured lines and takes no `+` body rows. To write literal text, drop the `@name` and use `PUT …:` with body rows.';
+  'A register `PUT` pastes captured lines and takes no `+` body rows. To write literal text, drop the `@name` and use `PUT …:` with body rows.'
 
 /** Colonless `PUT` hunk received a body row. */
 export const COLONLESS_PUT_TAKES_NO_BODY =
-  '`PUT` without `:` is clipboard-backed and takes no body rows. Add `:` after the locator to write literal content (`PUT >40:` then `+TEXT` rows).';
+  '`PUT` without `:` is clipboard-backed and takes no body rows. Add `:` after the locator to write literal content (`PUT >40:` then `+TEXT` rows).'
 
 /** Colonless anonymous `PUT` on a span target. */
 export const COLONLESS_SPAN_PUT = `Colonless \`PUT\` is clipboard-backed, and span targets need a named register (\`PUT 5${HL_RANGE_SEP}9 @name\`); the anonymous register pastes only at gaps (\`PUT >40\`). To write literal content, add \`:\` and \`+TEXT\` body rows.`
@@ -441,7 +441,7 @@ export const CLIPBOARD_INTERLEAVED_SECTIONS =
 
 /** Gap `PUT` with `:` but no body. */
 export const EMPTY_INSERT =
-  '`PUT <N:` / `PUT >N:` promises body rows and got none. Write `+TEXT` rows, or drop the `:` to paste a register (`PUT >N` = anonymous, `PUT >N @name` = named).';
+  '`PUT <N:` / `PUT >N:` promises body rows and got none. Write `+TEXT` rows, or drop the `:` to paste a register (`PUT >N` = anonymous, `PUT >N @name` = named).'
 
 /**
  * `insert after` body indented shallower than the anchor: the landing slid
@@ -463,15 +463,15 @@ export function blockInsertLandingShiftWarning(blockStart: number, closerLine: n
 
 /** `Recovery`: an external write matched a cached snapshot. */
 export const RECOVERY_EXTERNAL_WARNING =
-  'Recovered from a stale file hash using a previous read snapshot (file changed externally between read and edit).';
+  'Recovered from a stale file hash using a previous read snapshot (file changed externally between read and edit).'
 
 /** `Recovery`: a prior in-session edit advanced the hash. */
 export const RECOVERY_SESSION_CHAIN_WARNING =
-  'Recovered from a stale file hash using an earlier in-session snapshot (a prior edit in this session advanced the hash).';
+  'Recovered from a stale file hash using an earlier in-session snapshot (a prior edit in this session advanced the hash).'
 
 /** `Recovery`: stale anchors were relocated to unchanged live lines after drift. */
 export const RECOVERY_LINE_REMAP_WARNING =
-  'Recovered by remapping stale line anchors to unchanged current lines (file changed since the tagged read). Verify the diff matches your intent.';
+  'Recovered by remapping stale line anchors to unchanged current lines (file changed since the tagged read). Verify the diff matches your intent.'
 
 /**
  * `insert head:`/`insert tail:` applied despite a stale snapshot tag.
@@ -479,7 +479,7 @@ export const RECOVERY_LINE_REMAP_WARNING =
  * onto live content and warn instead of hard-failing.
  */
 export const HEADTAIL_DRIFT_WARNING =
-  'Applied the `PUT <1:`/`PUT >$:` edit despite a stale snapshot tag (file changed since your read) — head/tail position is content-independent. Re-read if the drift was unexpected.';
+  'Applied the `PUT <1:`/`PUT >$:` edit despite a stale snapshot tag (file changed since your read) — head/tail position is content-independent. Re-read if the drift was unexpected.'
 
 /**
  * The `Filesystem` reported that what actually landed on disk differs from
@@ -526,13 +526,13 @@ function formatLineRanges(lines: readonly number[]): string {
   const sorted = [...new Set(lines)].sort((a, b) => a - b)
   if (sorted.length === 0) return ''
   const parts: string[] = []
-  let start = sorted[0]!
-  let prev = sorted[0]!
+  let start = sorted[0] ?? 0
+  let prev = sorted[0] ?? 0
   for (let i = 1; i <= sorted.length; i++) {
     const current = sorted[i]
     if (current !== undefined && current === prev + 1) {
       prev = current
-      continue;
+      continue
     }
     parts.push(start === prev ? `${start}` : `${start}-${prev}`)
     if (current !== undefined) {

@@ -29,7 +29,7 @@ import type { EditSession } from '../session.ts'
 import { generateDiffString } from '../diff.ts'
 import { nativeBlockResolver } from './block-resolver.ts'
 import { EditFilesystem } from './filesystem.ts'
-import { hashPatchInput, NOOP_HARD_LIMIT, recordNoopEdit, resetNoopEdit } from './noop-loop-guard.ts'
+import { hashPatchInput, recordNoopEdit, resetNoopEdit } from './noop-loop-guard.ts'
 import { type HashlineParams, hashlineEditParamsSchema } from './params.ts'
 import { getSnapshotStore } from './store.ts'
 

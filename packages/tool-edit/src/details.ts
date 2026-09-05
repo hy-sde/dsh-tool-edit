@@ -40,7 +40,7 @@ export function computeHunkDiffs(path: string, before: string, after: string): F
     const oldLines: string[] = []
     const newLines: string[] = []
     for (const rawLine of hunk.lines) {
-      const line = rawLine ?? ''
+      const line = rawLine
       if (line.startsWith('\\')) continue
       const text = line.slice(1)
       if (line.startsWith('-')) oldLines.push(text)
@@ -73,5 +73,5 @@ export function fileDiffsFromMeta(meta: unknown): FileDiff[] | undefined {
       && typeof newText === 'string'
   }
   if (!diffs.every(isFileDiff)) return undefined
-  return diffs as FileDiff[]
+  return diffs
 }

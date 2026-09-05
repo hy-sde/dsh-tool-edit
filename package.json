@@ -1,6 +1,6 @@
 {
   "name": "dsh-tool-edit",
-  "version": "0.1.0-rc.5",
+  "version": "0.1.2-rc.1",
   "private": true,
   "description": "Standalone public packages: @hy-sde-org/dsh-hashline (the pure edit-patch engine) and @hy-sde-org/dsh-tool-edit (the rich `edit` tool plugin for DeepSeek Harness).",
   "type": "module",

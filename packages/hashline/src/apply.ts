@@ -99,7 +99,7 @@ function insertAtStart(fileLines: string[], lineOrigins: LineOrigin[], lines: st
   if (fileLines.length === 1 && fileLines[0] === '') {
     fileLines.splice(0, 1, ...lines)
     lineOrigins.splice(0, 1, ...origins)
-    return;
+    return
   }
   fileLines.splice(0, 0, ...lines)
   lineOrigins.splice(0, 0, ...origins)
@@ -204,8 +204,8 @@ function findReplacementGroup(edits: readonly AppliedEdit[], start: number): Rep
   const payload: string[] = []
   let i = start
   for (; i < edits.length; i++) {
-    const edit = edits[i]!
-    if (edit.kind !== 'insert' || edit.mode !== 'replacement' || edit.lineNum !== lineNum) break
+    const edit = edits[i]
+    if (edit === undefined || edit.kind !== 'insert' || edit.mode !== 'replacement' || edit.lineNum !== lineNum) break
     if (edit.cursor.kind !== 'before_anchor' || edit.cursor.anchor.line !== anchorLine) break
     insertIndices.push(i)
     payload.push(edit.text)
@@ -213,8 +213,8 @@ function findReplacementGroup(edits: readonly AppliedEdit[], start: number): Rep
   const deleteIndices: number[] = []
   let expectedLine = anchorLine
   for (; i < edits.length; i++) {
-    const edit = edits[i]!
-    if (edit.kind !== 'delete' || edit.lineNum !== lineNum || edit.anchor.line !== expectedLine) break
+    const edit = edits[i]
+    if (edit === undefined || edit.kind !== 'delete' || edit.lineNum !== lineNum || edit.anchor.line !== expectedLine) break
     deleteIndices.push(i)
     expectedLine++
   }
@@ -239,7 +239,7 @@ function repairReplacementIndentation(edits: AppliedEdit[], fileLines: readonly 
     const group = findReplacementGroup(edits, start)
     if (group === undefined) {
       start++
-      continue;
+      continue
     }
     const lastDeleteIndex = group.deleteIndices.at(-1)
     if (lastDeleteIndex === undefined) continue
@@ -261,26 +261,26 @@ function repairReplacementIndentation(edits: AppliedEdit[], fileLines: readonly 
     let consistent = true
     for (let offset = 0; offset < group.payload.length; offset++) {
       const source = fileLines[group.startLine - 1 + offset] ?? ''
-      const payload = group.payload[offset]!
+      const payload = group.payload[offset] ?? ''
       if (source.trim().length === 0 || source.trimStart() !== payload.trimStart()) continue
       const sourceIndent = leadingIndent(source)
       const payloadIndent = leadingIndent(payload)
       if (!sourceIndent.endsWith(payloadIndent)) {
         consistent = false
-        break;
+        break
       }
       const candidate = sourceIndent.slice(0, sourceIndent.length - payloadIndent.length)
       if (shift === undefined) shift = candidate
       else if (shift !== candidate) {
         consistent = false
-        break;
+        break
       }
       matches++
     }
     if (!consistent || !shift || matches < 2 || matches * 2 <= group.payload.length) continue
     for (const index of group.insertIndices) {
-      const edit = edits[index]!
-      if (edit.kind !== 'insert' || edit.text.trim().length === 0) continue
+      const edit = edits[index]
+      if (edit === undefined || edit.kind !== 'insert' || edit.text.trim().length === 0) continue
       edits[index] = { ...edit, text: `${shift}${edit.text}` }
     }
     repaired = true
@@ -303,10 +303,10 @@ function countDuplicateLeadingBoundaryLines(group: ReplacementGroup, fileLines: 
     let matches = true
     let hasContent = false
     for (let offset = 0; offset < count; offset++) {
-      const line = payload[offset]!
-      if (line !== fileLines[startLine - 1 - count + offset]!) {
+      const line = payload[offset] ?? ''
+      if (line !== (fileLines[startLine - 1 - count + offset] ?? '')) {
         matches = false
-        break;
+        break
       }
       hasContent ||= hasNonWhitespace(line)
     }
@@ -322,10 +322,10 @@ function countDuplicateTrailingBoundaryLines(group: ReplacementGroup, fileLines:
     let matches = true
     let hasContent = false
     for (let offset = 0; offset < count; offset++) {
-      const line = payload[payload.length - count + offset]!
-      if (line !== fileLines[endLine + offset]!) {
+      const line = payload[payload.length - count + offset] ?? ''
+      if (line !== (fileLines[endLine + offset] ?? '')) {
         matches = false
-        break;
+        break
       }
       hasContent ||= hasNonWhitespace(line)
     }
@@ -369,9 +369,11 @@ function normalizeTextualBoundaryEchoes(
   while (i < edits.length) {
     const group = findReplacementGroup(edits, i)
     if (!group) {
-      out.push(cloneAppliedEdit(edits[i]!, i))
+      const current = edits[i]
+      if (current === undefined) throw new Error('internal error: missing edit in echo normalization')
+      out.push(cloneAppliedEdit(current, i))
       i++
-      continue;
+      continue
     }
     const inserts = replacementInserts(group, edits)
     const deletes = replacementDeletes(group, edits)
@@ -415,10 +417,18 @@ function normalizeTextualBoundaryEchoes(
       out.push(...inserts.slice(dropLeading, inserts.length - dropTrailing), ...deletes)
       warnings.push(textualBoundaryEchoWarning(group.startLine, dropLeading, dropTrailing))
     } else {
-      for (const idx of group.insertIndices) out.push(cloneAppliedEdit(edits[idx]!, idx))
-      for (const idx of group.deleteIndices) out.push(cloneAppliedEdit(edits[idx]!, idx))
+      for (const idx of group.insertIndices) {
+        const cloneEdge = edits[idx]
+        if (cloneEdge === undefined) throw new Error('internal error: missing insert edit')
+        out.push(cloneAppliedEdit(cloneEdge, idx))
+      }
+      for (const idx of group.deleteIndices) {
+        const cloneEdge = edits[idx]
+        if (cloneEdge === undefined) throw new Error('internal error: missing delete edit')
+        out.push(cloneAppliedEdit(cloneEdge, idx))
+      }
     }
-    i = group.deleteIndices[group.deleteIndices.length - 1]! + 1
+    i = (group.deleteIndices[group.deleteIndices.length - 1] ?? 0) + 1
   }
   return { edits: out, warnings, ambiguities }
 }
@@ -759,7 +769,7 @@ function repairBoundaryVariants(
       const built = buildGroupVariants(group, edits, fileLines, path, baselineParses)
       if (built.ambiguous && ambiguousGroup === undefined) ambiguousGroup = group
       if (built.variants.length > 0) groups.push({ group, variants: built.variants })
-      i = group.deleteIndices[group.deleteIndices.length - 1]! + 1
+      i = (group.deleteIndices[group.deleteIndices.length - 1] ?? 0) + 1
     } else {
       i++
     }
@@ -805,7 +815,7 @@ function repairBoundaryVariants(
     if (bestCombo === undefined) {
       bestCombo = combo
       bestText = text
-      continue;
+      continue
     }
     if (text !== bestText) {
       if (ambiguousGroup) {
@@ -841,25 +851,35 @@ function spliceBoundaryCombo(
   const chosen = new Map<number, GroupVariant>()
   groups.forEach((entry, idx) => {
     const variant = combo.variants[idx]
-    if (variant) chosen.set(entry.group.insertIndices[0]!, variant)
+    if (variant) chosen.set(entry.group.insertIndices[0] ?? 0, variant)
   })
   const out: AppliedEdit[] = []
   let i = 0
   while (i < edits.length) {
     const group = findReplacementGroup(edits, i)
     if (!group) {
-      out.push(cloneAppliedEdit(edits[i]!, i))
+      const current = edits[i]
+      if (current === undefined) throw new Error('internal error: missing edit in splice')
+      out.push(cloneAppliedEdit(current, i))
       i++
-      continue;
+      continue
     }
-    const variant = chosen.get(group.insertIndices[0]!)
+    const variant = chosen.get(group.insertIndices[0] ?? 0)
     if (variant) {
       out.push(...variant.edits)
     } else {
-      for (const idx of group.insertIndices) out.push(cloneAppliedEdit(edits[idx]!, idx))
-      for (const idx of group.deleteIndices) out.push(cloneAppliedEdit(edits[idx]!, idx))
+      for (const idx of group.insertIndices) {
+        const cloneEdge = edits[idx]
+        if (cloneEdge === undefined) throw new Error('internal error: missing insert edit')
+        out.push(cloneAppliedEdit(cloneEdge, idx))
+      }
+      for (const idx of group.deleteIndices) {
+        const cloneEdge = edits[idx]
+        if (cloneEdge === undefined) throw new Error('internal error: missing delete edit')
+        out.push(cloneAppliedEdit(cloneEdge, idx))
+      }
     }
-    i = group.deleteIndices[group.deleteIndices.length - 1]! + 1
+    i = (group.deleteIndices[group.deleteIndices.length - 1] ?? 0) + 1
   }
   return out
 }
@@ -1001,7 +1021,7 @@ function resolveInwardLanding(
     const text = fileLines[line - 1] ?? ''
     if (!hasNonWhitespace(text)) {
       landing = line - 1 // look past trailing blanks, never land after one
-      continue;
+      continue
     }
     if (!STRUCTURAL_CLOSER_RE.test(text)) break // content reached — land right after it
     const indent = leadingIndent(text)
@@ -1034,9 +1054,13 @@ function repairAfterInsertLandings(
     if (edit.cursor.kind !== 'after_anchor') return
     const key = `${edit.cursor.anchor.line}:${edit.lineNum}`
     const group = groups.get(key)
-    if (group === undefined)
-      groups.set(key, { anchor: edit.cursor.anchor.line, members: [idx], ...(edit.blockStart === undefined ? {} : { blockStart: edit.blockStart }) })
-    else group.members.push(idx)
+    if (group === undefined) {
+      groups.set(key, {
+        anchor: edit.cursor.anchor.line,
+        members: [idx],
+        ...(edit.blockStart === undefined ? {} : { blockStart: edit.blockStart }),
+      })
+    } else group.members.push(idx)
   })
   if (groups.size === 0) return { edits, warnings: [] }
 
@@ -1064,7 +1088,7 @@ function repairAfterInsertLandings(
     if (outward !== undefined) {
       retarget(group, outward.line)
       warnings.push(afterInsertLandingShiftWarning(group.anchor, outward.line, outward.crossed))
-      continue;
+      continue
     }
     if (group.blockStart === undefined) continue
     const inward = resolveInwardLanding(group, target, group.blockStart, fileLines, targetedLines)
@@ -1083,7 +1107,8 @@ export interface ApplyEditsOptions {
 	 * across files; omitted, the call gets a private register.
 	 */
   clipboard?: Clipboard
-  /** Anonymous `PASTE` with an empty register: `throw` (default) or `drop` (streaming previews). An empty named-register paste never throws — it warns and pastes nothing. */
+  /** Anonymous `PASTE` with an empty register: `throw` (default) or `drop` (streaming previews). */
+  /** Empty named-register paste never throws — it warns and pastes nothing. */
   onEmptyPaste?: 'throw' | 'drop'
   /**
 	 * Target path used to infer a language for the tree-sitter syntax probe.
@@ -1114,7 +1139,7 @@ function materializeEdits(originalLines: readonly string[], edits: readonly Appl
   let firstChangedLine: number | undefined
   const trackFirstChanged = (line: number) => {
     if (firstChangedLine === undefined || line < firstChangedLine) firstChangedLine = line
-  };
+  }
 
   // Partition edits into bof, eof, and anchor-targeted buckets.
   const bofLines: string[] = []
@@ -1151,7 +1176,7 @@ function materializeEdits(originalLines: readonly string[], edits: readonly Appl
         afterInsertLines.push(edit.text)
       } else if (edit.kind === 'insert') {
         beforeInsertLines.push(edit.text)
-      } else if (edit.kind === 'delete') {
+      } else {
         deleteLine = true
       }
     }
@@ -1246,7 +1271,7 @@ export function applyEdits(text: string, edits: readonly Edit[], options: ApplyE
       ...(result.firstChangedLine === undefined ? {} : { firstChangedLine: result.firstChangedLine }),
       ...(merged.length > 0 ? { warnings: merged } : {}),
     }
-  };
+  }
   const ambiguity = normalized.ambiguities[0]
   // Exact-text normalization is evidence-complete. If it leaves a parsing
   // result, no speculative keep/drop variant may second-guess it.

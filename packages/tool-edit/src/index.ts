@@ -38,7 +38,7 @@ export const inject = ['tools', 'fs', 'systemPrompt'] as const
 
 /** Runtime configuration for the `edit` tool. */
 export interface Config {
-  /** Which mode the single `edit` tool runs (default 'auto': dispatch by args). */
+  /** Which mode the single `edit` tool runs (default 'hashline': line-anchored patches). */
   mode?: EditMode
   /** Whether fuzzy whitespace matching is allowed (replace/patch). */
   fuzzyMatch?: boolean
@@ -60,7 +60,7 @@ export interface Config {
 
 /** Runtime configuration schema for the `edit` tool. */
 export const Config: z<Config> = z.object({
-  mode: z.union(['auto', 'hashline', 'replace', 'patch', 'apply_patch'] as const).default('auto'),
+  mode: z.union(['auto', 'hashline', 'replace', 'patch', 'apply_patch'] as const).default('hashline'),
   fuzzyMatch: z.boolean().default(true),
   fuzzyThreshold: z.number().default(0.95),
   enforceSeenLines: z.boolean().default(false),
@@ -74,7 +74,7 @@ export const Config: z<Config> = z.object({
 /** Resolve the schema defaults into the runtime config handed to sessions. */
 export function resolveConfig(config: Config): ResolvedConfig {
   return {
-    mode: config.mode ?? 'auto',
+    mode: config.mode ?? 'hashline',
     fuzzyMatch: config.fuzzyMatch ?? true,
     fuzzyThreshold: config.fuzzyThreshold ?? 0.95,
     enforceSeenLines: config.enforceSeenLines ?? false,
@@ -128,12 +128,17 @@ function leadPathFromInput(input: string): string {
 
 function presentCall(args: Record<string, unknown>, resolved: ResolvedConfig): ToolCallView {
   const mode = dispatchMode(resolved, args)
-  const path = (typeof args.path === 'string' ? args.path : '') || leadPathFromInput(String(args.input ?? ''))
+  const path = (typeof args.path === 'string' ? args.path : '') ||
+    leadPathFromInput(typeof args.input === 'string' ? args.input : '')
   if (mode === 'replace') {
     return {
       card: 'diff',
       title: `Edit ${path}`,
-      diffs: buildReplaceDiffs(path, String(args.old_string ?? ''), String(args.new_string ?? '')),
+      diffs: buildReplaceDiffs(
+        path,
+        typeof args.old_string === 'string' ? args.old_string : '',
+        typeof args.new_string === 'string' ? args.new_string : '',
+      ),
       locations: [{ path }],
     }
   }
@@ -182,7 +187,7 @@ async function runReplace(ctx: Context, resolved: ResolvedConfig, args: Record<s
   const new_string = typeof args.new_string === 'string' ? args.new_string : ''
   const replace_all = args.replace_all === true
   const exec = toolExecFor(ctx)
-  const session = buildSession(ctx, resolved, exec) 
+  const session = buildSession(ctx, resolved, exec)
   const outcome = await executeReplace({
     session,
     path,
@@ -200,7 +205,7 @@ async function runPatch(ctx: Context, resolved: ResolvedConfig, args: Record<str
   const path = requireString(args.path, 'path')
   const edits = requireArray(args.edits, 'edits') as PatchEditEntry[]
   const exec = toolExecFor(ctx)
-  const session = buildSession(ctx, resolved, exec) 
+  const session = buildSession(ctx, resolved, exec)
   return executeEdits(session, path, edits, exec.signal, resolved)
 }
 
@@ -208,7 +213,7 @@ async function runPatch(ctx: Context, resolved: ResolvedConfig, args: Record<str
 async function runApplyPatch(ctx: Context, resolved: ResolvedConfig, args: Record<string, unknown>): Promise<string> {
   const input = requireString(args.input, 'input')
   const exec = toolExecFor(ctx)
-  const session = buildSession(ctx, resolved, exec) 
+  const session = buildSession(ctx, resolved, exec)
   const entries = expandApplyPatchToEntries({ input })
   const lines: string[] = []
   for (const entry of entries) {
@@ -234,7 +239,7 @@ async function runApplyPatch(ctx: Context, resolved: ResolvedConfig, args: Recor
 async function runHashline(ctx: Context, resolved: ResolvedConfig, args: Record<string, unknown>): Promise<string> {
   const input = requireString(args.input, 'input')
   const exec = toolExecFor(ctx)
-  const session = buildSession(ctx, resolved, exec) 
+  const session = buildSession(ctx, resolved, exec)
   const outcome = await executeHashlineSingle({
     session,
     input,
@@ -320,9 +325,10 @@ function registerEditTool(ctx: Context, config: ResolvedConfig, provider: EditLs
       presentationMeta: (args) => {
         const resolved = resolveConfig(config)
         if (dispatchMode(resolved, args as Record<string, unknown>) !== 'replace') return {}
-        const path = String((args as Record<string, unknown>).path ?? '')
-        const old_string = String((args as Record<string, unknown>).old_string ?? '')
-        const new_string = String((args as Record<string, unknown>).new_string ?? '')
+        const raw = args as Record<string, unknown>
+        const path = typeof raw.path === 'string' ? raw.path : ''
+        const old_string = typeof raw.old_string === 'string' ? raw.old_string : ''
+        const new_string = typeof raw.new_string === 'string' ? raw.new_string : ''
         const diffs = buildReplaceDiffs(path, old_string, new_string).map(
           diff => ({ path: diff.path, oldText: diff.oldText, newText: diff.newText }),
         )
@@ -349,7 +355,7 @@ function registerEditTool(ctx: Context, config: ResolvedConfig, provider: EditLs
           case 'hashline':
             return await runHashline(ctx, resolved, args as Record<string, unknown>)
           default:
-            throw new Error(`tool-edit: unknown mode ${String(mode)}`)
+            throw new Error(`tool-edit: unknown mode ${mode}`)
         }
       } catch (error) {
         if (error instanceof ApplyPatchError) throw new Error(errorMessage(error))

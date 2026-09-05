@@ -55,7 +55,7 @@ export interface ApplyPatchEntry {
  * patch engine.
  */
 export function expandApplyPatchToEntries(options: { input: string }): ApplyPatchEntry[] {
-  return parseApplyPatch(options.input) as unknown as ApplyPatchEntry[]
+  return parseApplyPatch(options.input)
 }
 
 function parseApplyPatchWithOptions(patchText: string, options: ParseApplyPatchOptions): PatchInput[] {
