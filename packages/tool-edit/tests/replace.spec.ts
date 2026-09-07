@@ -7,6 +7,7 @@ import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
 import AgentRegistry, { Inbox } from '@deepseek-ai/dsh-agent'
 import type { Agent } from '@deepseek-ai/dsh-agent'
+import { FsError } from '@deepseek-ai/dsh-fs'
 import LocalFileSystem from '@deepseek-ai/dsh-fs-local'
 import * as FsPolicy from '@deepseek-ai/dsh-fs-observation-policy'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
@@ -288,5 +289,71 @@ describe('tool-edit (replace mode)', () => {
     const result = await call(ctx, owner, { input })
     expect(result.isError).toBe(false)
     expect(await readFile(sample, 'utf8')).toBe('alpha\nBETA\ngamma\n')
+  })
+})
+describe('path aliases and no-op edits', () => {
+  it('accepts file_path as an alias for path', async () => {
+    const { ctx, root, owner } = await setup()
+    const sample = join(root, 'a.txt')
+    await writeFile(sample, 'hello world\n')
+    const result = await call(ctx, owner, {
+      file_path: sample,
+      old_string: 'hello',
+      new_string: 'goodbye',
+    })
+    expect(result.isError).toBe(false)
+    expect(text(result)).toContain('Successfully replaced text')
+    expect(await readFile(sample, 'utf8')).toBe('goodbye world\n')
+  })
+
+  it('accepts filePath as an alias for path', async () => {
+    const { ctx, root, owner } = await setup()
+    const sample = join(root, 'b.txt')
+    await writeFile(sample, 'alpha\n')
+    const result = await call(ctx, owner, {
+      filePath: sample,
+      old_string: 'alpha',
+      new_string: 'omega',
+    })
+    expect(result.isError).toBe(false)
+    expect(await readFile(sample, 'utf8')).toBe('omega\n')
+  })
+
+  it('reports an unchanged edit as a no-change success instead of an error', async () => {
+    const { ctx, root, owner } = await setup()
+    const sample = join(root, 'c.txt')
+    await writeFile(sample, 'same\n')
+    const result = await call(ctx, owner, {
+      path: sample,
+      old_string: 'same',
+      new_string: 'same',
+    })
+    expect(result.isError).toBe(false)
+    expect(text(result)).toContain('No change')
+    expect(await readFile(sample, 'utf8')).toBe('same\n')
+  })
+
+  it('retries a replace once when the guarded write reports FS_STALE_VERSION', async () => {
+    const { ctx, root, owner } = await setup()
+    const sample = join(root, 'stale.txt')
+    await writeFile(sample, 'stale\n')
+    const fs = ctx.fs as unknown as { writeText: (...args: unknown[]) => Promise<unknown> }
+    const original = fs.writeText.bind(ctx.fs)
+    let attempts = 0
+    fs.writeText = async (...args) => {
+      attempts++
+      if (attempts === 1) {
+        throw new FsError('cannot write "stale.txt": file changed since it was read', 'FS_STALE_VERSION')
+      }
+      return original(...args)
+    }
+    const result = await call(ctx, owner, {
+      path: sample,
+      old_string: 'stale',
+      new_string: 'fresh',
+    })
+    expect(result.isError).toBe(false)
+    expect(attempts).toBe(2)
+    expect(await readFile(sample, 'utf8')).toBe('fresh\n')
   })
 })

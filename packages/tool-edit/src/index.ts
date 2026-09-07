@@ -15,6 +15,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import type { FileSystem } from '@deepseek-ai/dsh-fs'
 import { defineTool } from '@deepseek-ai/dsh-tools'
+import { FsError } from '@deepseek-ai/dsh-fs'
 import type { ToolCallView, ToolResultView } from '@deepseek-ai/dsh-tools'
 import {
   APPLY_PATCH_SCHEMA_DESCRIPTIONS,
@@ -111,7 +112,7 @@ export function dispatchMode(resolved: ResolvedConfig, args: Record<string, unkn
   if (!hasInput) {
     throw new Error(
       'No recognized edit payload: expected replace mode args (path + old_string + new_string), ' +
-        'patch mode args (path + edits), or apply_patch / hashline mode args (input).',
+      'patch mode args (path + edits), or apply_patch / hashline mode args (input).',
     )
   }
 
@@ -138,8 +139,7 @@ function leadPathFromInput(input: string): string {
 
 function presentCall(args: Record<string, unknown>, resolved: ResolvedConfig): ToolCallView {
   const mode = dispatchMode(resolved, args)
-  const path = (typeof args.path === 'string' ? args.path : '') ||
-    leadPathFromInput(typeof args.input === 'string' ? args.input : '')
+  const path = resolvePathArg(args) ?? leadPathFromInput(typeof args.input === 'string' ? args.input : '')
   if (mode === 'replace') {
     return {
       card: 'diff',
@@ -192,7 +192,7 @@ function buildSession(ctx: Context, resolved: ResolvedConfig, exec: ToolRunExec)
 
 /** Execute the replace mode (mode 'replace'). */
 async function runReplace(ctx: Context, resolved: ResolvedConfig, args: Record<string, unknown>): Promise<string> {
-  const path = requireString(args.path, 'path')
+  const path = requirePath(args)
   const old_string = requireString(args.old_string, 'old_string')
   const new_string = typeof args.new_string === 'string' ? args.new_string : ''
   const replace_all = args.replace_all === true
@@ -212,7 +212,7 @@ async function runReplace(ctx: Context, resolved: ResolvedConfig, args: Record<s
 
 /** Execute mode 'patch' (JSON patch entries). */
 async function runPatch(ctx: Context, resolved: ResolvedConfig, args: Record<string, unknown>): Promise<string> {
-  const path = requireString(args.path, 'path')
+  const path = requirePath(args)
   const edits = requireArray(args.edits, 'edits') as PatchEditEntry[]
   const exec = toolExecFor(ctx)
   const session = buildSession(ctx, resolved, exec)
@@ -298,6 +298,31 @@ function requireArray(value: unknown, key: string): unknown[] {
 }
 
 /**
+ * The path argument with the legacy aliases models send as often as `path`:
+ * `file_path` (harness fs surface) and `filePath` (camelCase habit). Missing
+ * yields `undefined` so {@link requirePath} reports the canonical name.
+ */
+export function resolvePathArg(args: Record<string, unknown>): string | undefined {
+  if (typeof args.path === 'string') return args.path
+  if (typeof args.file_path === 'string') return args.file_path
+  if (typeof args.filePath === 'string') return args.filePath
+  return undefined
+}
+
+/** Like {@link requireString}, but for the path argument and its aliases. */
+function requirePath(args: Record<string, unknown>): string {
+  const value = resolvePathArg(args)
+  if (value === undefined) throw new Error('Parameter `path` is required and must be a string')
+  return value
+}
+
+/** Whether an error is the fs layer's concurrent-mutation refusal. */
+export function isStaleVersionError(error: unknown): boolean {
+  if (error instanceof FsError) return error.code === 'FS_STALE_VERSION'
+  return error instanceof Error && error.message.includes('FS_STALE_VERSION')
+}
+
+/**
  * Register the `edit` tool and its system-prompt guidance.
  * @param ctx - the plugin context; registrations are effects scoped to it.
  * @param config - resolved runtime configuration.
@@ -320,6 +345,8 @@ function registerEditTool(ctx: Context, config: ResolvedConfig, provider: EditLs
     description,
     parameters: {
       path: { type: 'string', description: REPLACE_SCHEMA_DESCRIPTIONS.path },
+      file_path: { type: 'string', description: 'Alias for `path`; prefer `path`.' },
+      filePath: { type: 'string', description: 'Alias for `path`; prefer `path`.' },
       old_string: { type: 'string', description: REPLACE_SCHEMA_DESCRIPTIONS.old_string },
       new_string: { type: 'string', description: REPLACE_SCHEMA_DESCRIPTIONS.new_string },
       replace_all: { type: 'boolean', description: REPLACE_SCHEMA_DESCRIPTIONS.replace_all },
@@ -336,7 +363,7 @@ function registerEditTool(ctx: Context, config: ResolvedConfig, provider: EditLs
         const resolved = resolveConfig(config)
         if (dispatchMode(resolved, args as Record<string, unknown>) !== 'replace') return {}
         const raw = args as Record<string, unknown>
-        const path = typeof raw.path === 'string' ? raw.path : ''
+        const path = resolvePathArg(raw) ?? ''
         const old_string = typeof raw.old_string === 'string' ? raw.old_string : ''
         const new_string = typeof raw.new_string === 'string' ? raw.new_string : ''
         const diffs = buildReplaceDiffs(path, old_string, new_string).map(
@@ -355,20 +382,42 @@ function registerEditTool(ctx: Context, config: ResolvedConfig, provider: EditLs
       }
       try {
         const mode = dispatchMode(resolved, args as Record<string, unknown>)
-        switch (mode) {
-          case 'replace':
-            return await runReplace(ctx, resolved, args as Record<string, unknown>)
-          case 'patch':
-            return await runPatch(ctx, resolved, args as Record<string, unknown>)
-          case 'apply_patch':
-            return await runApplyPatch(ctx, resolved, args as Record<string, unknown>)
-          case 'hashline':
-            return await runHashline(ctx, resolved, args as Record<string, unknown>)
-          default:
-            throw new Error(`tool-edit: unknown mode ${mode}`)
+        const record = args as Record<string, unknown>
+        const run = (): Promise<string> => {
+          switch (mode) {
+            case 'replace':
+              return runReplace(ctx, resolved, record)
+            case 'patch':
+              return runPatch(ctx, resolved, record)
+            case 'apply_patch':
+              return runApplyPatch(ctx, resolved, record)
+            case 'hashline':
+              return runHashline(ctx, resolved, record)
+            default:
+              return Promise.reject(new Error(`tool-edit: unknown mode ${mode}`))
+          }
+        }
+        try {
+          return await run()
+        } catch (error) {
+          // A concurrent mutation between the executor's read and its guarded
+          // write aborts the WHOLE edit before anything lands (the write is
+          // the single side effect), so re-running once is safe for replace
+          // mode: the fresh session re-reads, re-observes the current version,
+          // and re-applies the same anchored edit. Multi-entry patch / hashline
+          // batches are NOT retried — an earlier entry may already be on disk.
+          if (mode === 'replace' && isStaleVersionError(error)) return await run()
+          throw error
         }
       } catch (error) {
         if (error instanceof ApplyPatchError) throw new Error(errorMessage(error))
+        const message = errorMessage(error)
+        // A no-op edit (old === new, or the patch resolves to the current
+        // content) is a SUCCESS: the intended state already holds. Report it
+        // instead of surfacing an error the model would retry against.
+        if (/resulted in no changes being made|old_string and new_string must differ/.test(message)) {
+          return `No change: ${message}`
+        }
         throw error
       } finally {
         ctxFor['__toolEditExec'] = undefined
