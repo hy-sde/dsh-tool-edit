@@ -191,6 +191,7 @@ Configure the tool by patching the `tool-edit` row in your preset by id:
     formatOnWrite: true
     diagnosticsOnEdit: true
     lspCommand: npx --yes typescript-language-server --stdio
+    typescriptNative: {}    # opt-in: tsc --lsp --stdio for TS7 workspaces
 ```
 
 ## Tool modes
@@ -211,6 +212,11 @@ via `config.mode`; the default is `hashline` for `input` payloads, while
 - The embedded client spawns `typescript-language-server` on first edit that
   writes through LSP; the server process is shared for the plugin lifetime
   and torn down on unmount.
+- **TypeScript 7 (`typescriptNative`, opt-in):** a workspace whose TypeScript
+  install has no `lib/tsserver.js` (TS7+) spawns the native `tsc --lsp
+  --stdio` from the workspace's own launcher (or the `tsc` resolved on PATH)
+  instead of the wrapper, which cannot drive TS7; classic and undetectable
+  workspaces keep `lspCommand` unchanged (upstream oh-my-pi `530664c8f5`).
 - With `formatOnWrite`, edited files are formatted via
   `textDocument/formatting` before the write lands.
 - With `diagnosticsOnEdit`, `textDocument/publishDiagnostics` are attached to

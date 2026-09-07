@@ -20,6 +20,7 @@ import type { SandboxExecutionPolicy } from '@deepseek-ai/dsh-sandbox'
 import type { SandboxPolicyService } from '@deepseek-ai/dsh-sandbox-policy'
 import type { ToolRunContext } from '@deepseek-ai/dsh-tools'
 import type { EditLspProvider } from './lsp/provider.ts'
+import type { TypeScriptNativeConfig } from './lsp/provider.ts'
 import { createWritethrough } from './lsp/writethrough.ts'
 import type { WritethroughCallback } from './lsp/writethrough.ts'
 
@@ -36,6 +37,8 @@ export interface ResolvedConfig {
   diagnosticsOnEdit: boolean
   diagnosticsDeduplicate: boolean
   lspCommand: string
+  /** Present when the deployment opts into TypeScript 7 native-LSP selection. */
+  typescriptNative?: TypeScriptNativeConfig
   description?: string
 }
 

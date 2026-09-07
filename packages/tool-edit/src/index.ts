@@ -32,6 +32,7 @@ import { expandApplyPatchToEntries } from './apply-patch.ts'
 import { executeReplace } from './replace.ts'
 import { createEditSession, type EditMode, type EditSession, type ResolvedConfig } from './session.ts'
 import { DEFAULT_LSP_COMMAND, createEditLspProvider, type EditLspProvider } from './lsp/provider.ts'
+import type { TypeScriptNativeConfig } from './lsp/provider.ts'
 
 export const name = 'tool-edit'
 export const inject = ['tools', 'fs', 'systemPrompt'] as const
@@ -54,6 +55,13 @@ export interface Config {
   diagnosticsDeduplicate?: boolean
   /** Language-server command line; default spins up typescript-language-server on demand. */
   lspCommand?: string
+  /**
+   * Opt into per-workspace TypeScript server selection (upstream oh-my-pi
+   * commit 530664c8f5): a workspace whose TypeScript install has no
+   * `lib/tsserver.js` (TypeScript 7+) spawns the native `tsc --lsp --stdio`
+   * and every other workspace keeps `lspCommand`. Off unless set.
+   */
+  typescriptNative?: TypeScriptNativeConfig
   /** Override the model-facing tool description. */
   description?: string
 }
@@ -68,6 +76,7 @@ export const Config: z<Config> = z.object({
   diagnosticsOnEdit: z.boolean().default(false),
   diagnosticsDeduplicate: z.boolean().default(true),
   lspCommand: z.string().default(DEFAULT_LSP_COMMAND),
+  typescriptNative: z.object({ command: z.string().default('tsc') }),
   description: z.string(),
 })
 
@@ -82,6 +91,7 @@ export function resolveConfig(config: Config): ResolvedConfig {
     diagnosticsOnEdit: config.diagnosticsOnEdit ?? false,
     diagnosticsDeduplicate: config.diagnosticsDeduplicate ?? true,
     lspCommand: config.lspCommand ?? DEFAULT_LSP_COMMAND,
+    ...config.typescriptNative === undefined ? {} : { typescriptNative: config.typescriptNative },
     ...config.description === undefined ? {} : { description: config.description },
   }
 }
@@ -384,7 +394,10 @@ export function apply(ctx: Context, config: Config): void {
   // The embedded LSP provider is created lazily on first use and torn down
   // with the plugin, so format/diagnostics cost nothing on sessions that
   // never write through LSP.
-  const provider = createEditLspProvider({ command: resolved.lspCommand })
+  const provider = createEditLspProvider({
+    command: resolved.lspCommand,
+    ...resolved.typescriptNative === undefined ? {} : { typescriptNative: resolved.typescriptNative },
+  })
   ctx.effect(() => () => { void provider.dispose() })
   registerEditTool(ctx, resolved, provider)
 }
