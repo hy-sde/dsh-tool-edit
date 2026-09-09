@@ -43,5 +43,10 @@
     "edit",
     "hashline",
     "patch"
-  ]
+  ],
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7"
+  }
 }

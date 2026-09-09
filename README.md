@@ -85,18 +85,18 @@ from the built tarballs — and pin the unpublished dependency so `pnpm add`
 doesn't query the registry for `@hy-sde-org/dsh-hashline`:
 
 ```bash
-git clone git@github.com:hy-sde/dsh-tool-edit.git
-cd dsh-tool-edit
+git clone git@github.com:hy-sde/dsh-plugins.git
+cd dsh-plugins
 pnpm install
-pnpm run build
+pnpm --filter @hy-sde-org/dsh-hashline build
 
-HASHLINE_TGZ="$(cd packages/hashline && pnpm pack --silent --pack-destination /tmp)"
+HASHLINE_TGZ="$(cd dsh-tool-edit/packages/hashline && ppnpm pack --silent --pack-destination /tmp)"
 dsh plugin --profile web add "$HASHLINE_TGZ"
 
 # Pin hashline locally so the tool-edit tarball's dependency resolves offline.
 printf 'overrides:\n  "@hy-sde-org/dsh-hashline": "file:%s/packages/hashline"\n' "$PWD" >> "$DSH_HOME/profiles/web/pnpm-workspace.yaml"
 
-TOOLEDIT_TGZ="$(cd packages/tool-edit && pnpm pack --silent --pack-destination /tmp)"
+TOOLEDIT_TGZ="$(cd dsh-tool-edit/packages/tool-edit && pnpm pack --silent --pack-destination /tmp)"
 dsh plugin --profile web add "$TOOLEDIT_TGZ"
 ```
 
