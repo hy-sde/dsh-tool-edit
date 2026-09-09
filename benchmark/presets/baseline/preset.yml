@@ -1,0 +1,3 @@
+name: Bench baseline (stock edit)
+description: A/B bench arm that keeps the deployment's stock `edit` tool — mount together with the `rich` preset for the oh-my-pi edit benchmark.
+order: 80

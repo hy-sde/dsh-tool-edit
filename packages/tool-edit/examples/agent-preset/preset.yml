@@ -1,0 +1,3 @@
+name: Edit Mode (rich)
+description: Coding agent whose edits go through the rich edit tool (replace / patch / apply_patch / hashline), with LSP format-on-write and diagnostics. For official DeepSeek Harness releases (rc.7+).
+order: 5

@@ -1,0 +1,35 @@
+# @hy-sde-org/dsh-tool-edit — install surface for the rich `edit` tool.
+#
+# The official DeepSeek Harness releases (`dsh-v0.1.2-rc.1`, and any release
+# whose `@deepseek-ai/dsh-tool-fs` still has no `enableEdit` switch) cannot
+# host a drop-in `edit` bundle on the HOST plane: their `tool-fs` always
+# registers `read`/`write`/`edit`, so inserting a second `edit`-owner
+# anywhere in the deployment tree fails boot with "prompt section `tool:edit`
+# is already registered" (the `enableEdit: false` key is silently ignored on
+# these releases). The rich editor therefore mounts at the AGENT plane — one
+# row in a user agent preset — where its scoped `tool:edit`/`edit` shadow the
+# deployment's stock ones. See the README "Replacing the built-in editor"
+# section and `examples/agent-preset/` in the package for the ready-to-copy
+# preset.
+#
+# What installing this patch DOES do on a stock release:
+#
+#   - `tool-str-replace-editor` — disables the standalone Anthropic-style
+#     `str_replace_editor` tool the official harness ships host-wide
+#     (`@deepseek-ai/dsh-tool-str-replace-editor`). Sessions keep
+#     `read`/`write`/`edit` from the deployment's `tool-fs`, and once you
+#     mount the preset row below the rich `edit` replaces the stock one. On
+#     harness builds that already dropped that package (the hy-sde fork), the
+#     row is absent and the loader only warns — which is fine.
+#
+#   - No rows are inserted. Every host-plane variant that provides the rich
+#     editor alone, or with its own `tool-fs`, collides on stock harnesses as
+#     described above, so the bundle stays out of the way and lets the
+#     per-session preset own the `edit` name.
+#
+# Re-enable the shipped editor later by patching `disabled: null`:
+#
+#   - id: tool-str-replace-editor
+#     disabled: null
+- id: tool-str-replace-editor
+  disabled: true
