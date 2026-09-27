@@ -11,6 +11,7 @@ import { applyEdits } from './apply.ts'
 import { diffLineRuns } from './line-diff.ts'
 import { RECOVERY_EXTERNAL_WARNING, RECOVERY_LINE_REMAP_WARNING, RECOVERY_SESSION_CHAIN_WARNING } from './messages.ts'
 import type { SnapshotStore } from './snapshots.ts'
+import { enclosingContext } from './syntax-chain.ts'
 import type { Anchor, ApplyResult, Clipboard, Edit } from './types.ts'
 
 export interface RecoveryArgs {
@@ -200,6 +201,60 @@ interface RemappedEdits {
   offset: number
 }
 
+/**
+ * Whether every remapped anchor still sits in the construct it was authored
+ * against.
+ *
+ * The line map is built from a text diff, which only aligns equal rows: an
+ * anchor whose row is repeated in the file can therefore map onto the
+ * identical row of a sibling construct with a uniform offset and matching
+ * neighbors, and the edit lands in the wrong block while every positional
+ * check passes. Comparing the enclosing constructs by content rejects those
+ * landings. Files with no inferable language report no chain on either side
+ * and stay allowed (mirrors upstream facc0f9cdf).
+ */
+export function contextPreserved(
+  previous: string,
+  current: string,
+  path: string,
+  authored: readonly Edit[],
+  remapped: readonly Edit[],
+): boolean {
+  const previousLines = previous.split('\n')
+  const currentLines = current.split('\n')
+  const checked = new Set<string>()
+  for (let i = 0; i < authored.length; i++) {
+    const authoredEdit = authored[i]
+    const remappedEdit = remapped[i]
+    if (authoredEdit === undefined || remappedEdit === undefined) return false
+    // The offset is uniform across a remapped patch, so the endpoints of a
+    // span pin the interior: parsing every line of a wide CUT would not.
+    const authoredAnchors = getEditAnchors(authoredEdit)
+    const remappedAnchors = getEditAnchors(remappedEdit)
+    const firstAuthored = authoredAnchors[0]
+    const lastAuthored = authoredAnchors[authoredAnchors.length - 1]
+    const firstRemapped = remappedAnchors[0]
+    const lastRemapped = remappedAnchors[remappedAnchors.length - 1]
+    const edges = [
+      [firstAuthored, firstRemapped] as const,
+      [lastAuthored, lastRemapped] as const,
+    ]
+    for (const [authoredAnchor, remappedAnchor] of edges) {
+      if (authoredAnchor === undefined || remappedAnchor === undefined) continue
+      const key = `${authoredAnchor.line}:${remappedAnchor.line}`
+      if (checked.has(key)) continue
+      checked.add(key)
+      if (
+        enclosingContext(previousLines, path, authoredAnchor.line).map(entry => `${entry.kind}:${entry.opener}`).join('|') !==
+        enclosingContext(currentLines, path, remappedAnchor.line).map(entry => `${entry.kind}:${entry.opener}`).join('|')
+      ) {
+        return false
+      }
+    }
+  }
+  return true
+}
+
 function remapEditsToCurrent(previousText: string, currentText: string, edits: readonly Edit[]): RemappedEdits | null {
   const lineMap = buildLineMap(previousText, currentText)
   if (!validateRemappedAnchorContext(previousText, currentText, lineMap, edits)) return null
@@ -319,6 +374,7 @@ function replayRemappedAnchorsOnCurrent(
 ): RecoveryResult | null {
   const remapped = remapEditsToCurrent(previousText, currentText, edits)
   if (remapped === null) return null
+  if (!contextPreserved(previousText, currentText, path, edits, remapped.edits)) return null
   let applied: ApplyResult
   try {
     applied = applyEdits(currentText, remapped.edits, {
