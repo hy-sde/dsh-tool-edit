@@ -18,11 +18,14 @@ import {
   commitClipboard,
   forkClipboard,
   MismatchError as HashlineMismatchError,
+  normalizeToLF,
   Patch,
   Patcher,
   type PatchSectionResult,
   type PreparedSection,
+  type SnapshotStore,
   startClipboardBatch,
+  stripBom,
 } from '@hy-sde-org/dsh-hashline'
 import type { EditDiagnosticsResult } from '../lsp/writethrough.ts'
 import type { EditSession } from '../session.ts'
@@ -66,6 +69,55 @@ function noChangeLoopDiagnostic(path: string, count: number): string {
     'or your anchor is wrong (re-read the file with `read` to observe the current line numbers and ' +
     'tag, then author a different edit). This exact payload will keep being rejected until it changes.'
   )
+}
+
+/** Row prefix of a rendered hashline result: optional `*`/space, `N` or `N-M`, colon. */
+const SEEN_LINE_ROW_RE = /^[ *]?(\d+)(?:-(\d+))?:/
+
+/**
+ * Extract the 1-indexed lines a rendered hashline result displays as
+ * `N:content` rows (plus range ends `N-M:`) so they can be registered as
+ * seen provenance on the snapshot the result tag names. Mirrors oh-my-pi's
+ * `seen_lines_from_body` (crates/pi-edit/src/store.rs). Header rows
+ * (`[path#tag]`) do not match: `[` is not in the prefix class.
+ */
+export function seenLinesFromBody(text: string): number[] {
+  const seen: number[] = []
+  for (const row of text.split('\n')) {
+    const match = SEEN_LINE_ROW_RE.exec(row)
+    if (!match) continue
+    const first = Number.parseInt(match[1] ?? '', 10)
+    if (Number.isFinite(first)) seen.push(first)
+    const end = match[2] === undefined ? undefined : Number.parseInt(match[2], 10)
+    if (end !== undefined && Number.isFinite(end)) seen.push(end)
+  }
+  return seen
+}
+
+/**
+ * Register the numbered rows a rendered section result displayed as seen
+ * lines on the snapshot version its tag names (the post-edit content the
+ * patcher just recorded). Upstream terminates a successful edit's response
+ * with this same registration, making the displayed rows anchorable for a
+ * follow-up edit against the NEW tag; a line hidden under elision stays
+ * rejected.
+ */
+function recordRenderedSeenLines(
+  snapshots: SnapshotStore,
+  result: PatchSectionResult,
+  text: string,
+): void {
+  // Drift guard (mirrors upstream): when what actually landed differs from
+  // `after`, the tag and header name the RECORDED text while the rendered
+  // preview rows are numbered against `after` — marking them seen would mint
+  // bogus provenance, so nothing registers.
+  if (normalizeToLF(stripBom(result.written).text) !== result.after) return
+  const seen = seenLinesFromBody(text)
+  if (seen.length === 0) return
+  // A moved file carries its provenance to the destination: the patcher
+  // already rewrote `canonicalPath` to the destination canonical path and
+  // relocated the store history there.
+  snapshots.recordSeenLines(result.canonicalPath, result.fileHash, seen)
 }
 
 function assertUniqueCanonicalPaths(prepared: readonly PreparedSection[]): void {
@@ -204,10 +256,13 @@ export async function executeHashlineSingle(options: ExecuteHashlineSingleOption
       if (escalate) {
         throw new Error(noChangeLoopDiagnostic(sectionResult.path, count))
       }
-      return { text: renderSection(sectionResult, undefined).text, sections: [renderSection(sectionResult, undefined).details] }
+      const rendered = renderSection(sectionResult, undefined)
+      recordRenderedSeenLines(snapshots, sectionResult, rendered.text)
+      return { text: rendered.text, sections: [rendered.details] }
     }
     resetNoopEdit(options.session.sessionKey ?? {}, sectionResult.canonicalPath)
     const rendered = renderSection(sectionResult, fs.consumeDiagnostics(sectionResult.path))
+    recordRenderedSeenLines(snapshots, sectionResult, rendered.text)
     return { text: rendered.text, sections: [rendered.details] }
   }
 
@@ -246,6 +301,7 @@ export async function executeHashlineSingle(options: ExecuteHashlineSingleOption
     }
     resetNoopEdit(options.session.sessionKey ?? {}, sectionResult.canonicalPath)
     const entry = renderSection(sectionResult, fs.consumeDiagnostics(sectionResult.path))
+    recordRenderedSeenLines(snapshots, sectionResult, entry.text)
     rendered.push(entry)
   }
 

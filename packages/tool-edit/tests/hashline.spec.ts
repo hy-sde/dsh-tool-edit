@@ -207,3 +207,72 @@ describe('tool-edit (hashline) × fs-observation-policy', () => {
     expect(await readFile(sample, 'utf8')).toBe(before)
   })
 })
+
+describe('tool-edit (hashline mode) × edit-result line provenance', () => {
+  /** Full composition with seen-line enforcement: real backend + shared snapshot store + rich editor. */
+  async function provenanceStack() {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-tool-edit-provenance-'))
+    roots.push(root)
+    const ctx = new Context()
+    contexts.push(ctx)
+    await ctx.plugin(SystemPrompt)
+    await ctx.plugin(ToolRuntime)
+    await ctx.plugin(AgentRegistry)
+    await ctx.plugin(LocalFileSystem, { cwd: root })
+    const fiber = await ctx.plugin(ToolEdit, { enforceSeenLines: true })
+    return { ctx, root, fiber, owner: agent(ctx, root) }
+  }
+
+  function modelText(result: { content: { type: string; text?: string }[] }): string {
+    return result.content.filter(b => b.type === 'text').map(b => b.text).join('')
+  }
+
+  it('registers displayed edit-result rows as post-edit snapshot provenance: rejects hidden lines, accepts displayed lines', async () => {
+    const { ctx, root, owner } = await provenanceStack()
+    const sample = join(root, 'a.txt')
+    const source = 'line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\n'
+    // Post-edit content: `NEWLINE` inserted after line 2 (13 lines).
+    const edited = 'line1\nline2\nNEWLINE\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\n'
+    await writeFile(sample, source)
+
+    // The harness `read` tool records what it displayed onto the session's
+    // hoisted snapshot store (getSessionSnapshotStore). The plugins workspace
+    // has no dsh-tool-fs, so record a partial read (lines 1-2 displayed)
+    // directly through the same shared store — identical provenance.
+    const store = getSessionSnapshotStore(owner.session)
+    const originalTag = store.record(sample, source, [1, 2])
+    expect(originalTag).toBe(computeFileHash(source))
+
+    // First edit anchors the seen line 2 (PUT >2 = insert after). The rendered
+    // rows are `1:line1`, `2:line2`, `3:NEWLINE` — row 3 was NEVER displayed by
+    // the read, so registering it as seen provenance on the post-edit tag is
+    // the fix under test (omp cea3caf71f). Without it the follow-up edit at
+    // line 3 would be rejected as anchored on a never-displayed line.
+    const first = await call(ctx, owner, {
+      input: `[${sample}#${originalTag}]\nPUT >2:\n+NEWLINE\n`,
+    })
+    expect(first.isError).toBe(false)
+    const firstText = modelText(first)
+    expect(firstText).toContain('3:NEWLINE')
+    const editedTag = computeFileHash(edited)
+
+    // (a) A line the edit result did NOT display stays rejected under the
+    // post-edit tag: line 13 (the tail) was hidden under the rendered rows.
+    const hidden = await call(ctx, owner, {
+      input: `[${sample}#${editedTag}]\nPUT 13.=13:\n+LINE13\n`,
+    })
+    expect(hidden.isError).toBe(true)
+    expect(modelText(hidden)).toContain('lines 13')
+
+    // (b) A line the edit result DID display is accepted under the same tag:
+    // line 3 is anchorable because the edit result rendered it as `3:NEWLINE`
+    // and registered it as seen provenance on the post-edit snapshot.
+    const seen = await call(ctx, owner, {
+      input: `[${sample}#${editedTag}]\nPUT 3.=3:\n+LINE3\n`,
+    })
+    expect(seen.isError).toBe(false)
+    expect(await readFile(sample, 'utf8')).toBe(
+      'line1\nline2\nLINE3\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\n',
+    )
+  })
+})
