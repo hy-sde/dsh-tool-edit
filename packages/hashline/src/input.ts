@@ -75,12 +75,9 @@ function tryParseRecoveryHeader(line: string, cwd?: string): RawSection | null {
     pathText = body.replace(/\s+$/, '')
   }
 
-  // Same rule as the strict tokenizer: the hashline header grammar uses
-  // `#` as the path/tag separator and does not allow `#` inside
-  // filenames. Anything `#` left in the path body — short tags, non-hex
-  // tags, over-long tags, stale-tag copy-paste, line-suffixed tags —
-  // means the header is malformed, not a path with an embedded hash.
-  if (pathText.includes('#')) return null
+  // Only a recovered tag disambiguates a `#` inside the path; untagged, it
+  // is a malformed tag (`a.ts#1A2B copied`), not part of a file name.
+  if ((fileHash === undefined && pathText.includes('#'))) return null
 
   const path = normalizeHashlinePath(pathText, cwd)
   if (path.length === 0) return null

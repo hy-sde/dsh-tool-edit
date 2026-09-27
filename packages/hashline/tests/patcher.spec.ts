@@ -39,6 +39,19 @@ describe('Patcher snapshot tag integrity', () => {
     expect(fs.get(PATH)).toBe('after\n')
   })
 
+  it("applies an edit to a file whose name contains '#' (yadm alt file)", async () => {
+    const ALT_PATH = 'conf.yaml##hostname.home'
+    const fs = new InMemoryFilesystem([[ALT_PATH, 'alpha\nbeta\n']])
+    const snapshots = new InMemorySnapshotStore()
+    const tag = snapshots.record(ALT_PATH, 'alpha\nbeta\n')
+    const patcher = new Patcher({ fs, snapshots })
+
+    const result = await patcher.apply(Patch.parse(`[${ALT_PATH}#${tag}]\nPUT 2.=2:\n+beta2`))
+
+    expect(result.sections[0]?.op).toBe('update')
+    expect(fs.get(ALT_PATH)).toBe('alpha\nbeta2\n')
+  })
+
   it('restores a UTF-8 BOM hidden by Bun text decoding', async () => {
     const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'hashline-bom-'))
     try {

@@ -24,6 +24,24 @@ describe('hashline section headers', () => {
     expect(section.applyTo('before').text).toBe('after')
   })
 
+  it('accepts `#` inside the path when a valid tag separates it (yadm alt files)', () => {
+    const section = Patch.parse('[conf.yaml##hostname.home#1a2b]\nPUT 1:\n+x', { cwd: process.cwd() })
+
+    expect(section.sections[0]?.path).toBe('conf.yaml##hostname.home')
+    expect(section.sections[0]?.fileHash).toBe('1A2B')
+  })
+
+  it('recovers a tagged path containing `#` from apply_patch noise', () => {
+    const section = Patch.parse('[*** Update File: conf.yaml##os.Linux#1A2B]\nPUT 1:\n+x')
+
+    expect(section.sections[0]?.path).toBe('conf.yaml##os.Linux')
+    expect(section.sections[0]?.fileHash).toBe('1A2B')
+  })
+
+  it('rejects untagged `#` in a header path as a malformed tag', () => {
+    expect(() => Patch.parse('[conf.yaml##hostname.home]\nPUT 1:\n+x')).toThrow(/Input header must be/)
+  })
+
   it('rejects trailing junk after a snapshot tag', () => {
     expect(() => Patch.parse('[src/a.ts#1A2B copied from read]\nPUT 1-1:\n+after')).toThrow(/Input header must be/)
     expect(() => Patch.parse('[src/a.ts#1A2B:812]\nPUT 1-1:\n+after')).toThrow(/Input header must be/)

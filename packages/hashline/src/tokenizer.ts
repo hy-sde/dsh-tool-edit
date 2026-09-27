@@ -512,15 +512,18 @@ function tryParseHeader(line: string): { path: string; fileHash?: string } | nul
     }
   }
 
-  // The hashline header grammar uses `#` as the path/tag separator and
-  // does not allow `#` inside filenames. Anything `#` left in the path
-  // body — short tags (`#1A2`), non-hex tags (`#1A2G`), over-long tags
-  // (`#1A2B5`), stale-tag copy-paste (`#1A2B copied from read`), or
-  // line-suffixed tags (`#1A2B:42`) — means the header is malformed.
-  // Surface the focused diagnostic instead of silently mis-routing the
-  // edit or reporting a missing tag downstream.
-  for (let i = FILE_PREFIX_LENGTH; i < pathEnd; i++) {
-    if (line.charCodeAt(i) === CHAR_HASH) return null
+  // The hashline header grammar uses `#` as the path/tag separator. A valid
+  // trailing 4-hex tag disambiguates the path, so a tagged path may itself
+  // contain `#` (yadm alt files: `conf.yaml##hostname.home`). Only when no
+  // tag was detected does an untagged `#` in the path body mean the header
+  // is malformed — short tags (`#1A2`), non-hex tags (`#1A2G`), over-long
+  // tags (`#1A2B5`), stale-tag copy-paste (`#1A2B copied from read`), or
+  // line-suffixed tags (`#1A2B:42`). Surface the focused diagnostic instead
+  // of silently mis-routing the edit or reporting a missing tag downstream.
+  if (fileHash === undefined) {
+    for (let i = FILE_PREFIX_LENGTH; i < pathEnd; i++) {
+      if (line.charCodeAt(i) === CHAR_HASH) return null
+    }
   }
 
   if (pathEnd === FILE_PREFIX_LENGTH) return null

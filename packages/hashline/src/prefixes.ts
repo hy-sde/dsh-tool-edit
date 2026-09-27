@@ -20,7 +20,7 @@ import { HL_FILE_HASH_LENGTH } from './format.ts'
 
 const HL_PREFIX_RE = /^\s*(?:>>>|>>)?\s*(?:[+*-]\s*)?\d+[:|]/
 const HL_PREFIX_PLUS_RE = /^\s*(?:>>>|>>)?\s*\+\s*\d+:/
-const HL_HEADER_RE = new RegExp(`^\\s*\\[[^#\\r\\n]+#[0-9a-fA-F]{${HL_FILE_HASH_LENGTH}}\\]\\s*$`)
+const HL_HEADER_RE = new RegExp(`^\\s*\\[[^\\r\\n]+#[0-9a-fA-F]{${HL_FILE_HASH_LENGTH}}\\]\\s*$`)
 const DIFF_PLUS_RE = /^[+](?![+])/
 const READ_TRUNCATION_NOTICE_RE = new RegExp(
   '^\\s*\\[(?:(?:Showing lines \\d+-\\d+ of \\d+|\\d+ more lines? in (?:file|\\S+))\\b.*\\bUse :L?\\d+|' +
