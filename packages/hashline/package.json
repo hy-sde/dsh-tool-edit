@@ -32,8 +32,8 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/hy-sde/dsh-plugins.git",
-    "directory": "dsh-tool-edit/packages/hashline"
+    "url": "git+https://github.com/hy-sde/dsh-tool-edit.git",
+    "directory": "packages/hashline"
   },
   "license": "MIT",
   "keywords": [
@@ -48,5 +48,9 @@
     "@types/node": "^24.0.0",
     "typescript": "^5.9.3",
     "vitest": "^3.2.7"
+  },
+  "homepage": "https://github.com/hy-sde/dsh-tool-edit#readme",
+  "bugs": {
+    "url": "https://github.com/hy-sde/dsh-tool-edit/issues"
   }
 }

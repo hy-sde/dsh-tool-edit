@@ -40,8 +40,8 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/hy-sde/dsh-plugins.git",
-    "directory": "dsh-tool-edit/packages/tool-edit"
+    "url": "git+https://github.com/hy-sde/dsh-tool-edit.git",
+    "directory": "packages/tool-edit"
   },
   "license": "MIT",
   "dsh": {
@@ -90,5 +90,9 @@
     "edit",
     "code-editing",
     "lsp"
-  ]
+  ],
+  "homepage": "https://github.com/hy-sde/dsh-tool-edit#readme",
+  "bugs": {
+    "url": "https://github.com/hy-sde/dsh-tool-edit/issues"
+  }
 }
