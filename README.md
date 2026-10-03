@@ -1,3 +1,9 @@
+<!-- MIRROR-NOTE:START -->
+> [!NOTE]
+> 📦 This plugin lives in the [**dsh-plugins**](https://github.com/hy-sde/dsh-plugins) monorepo — file issues & pull requests there.
+> npm: [`@hy-sde-org/dsh-hashline`](https://www.npmjs.com/package/@hy-sde-org/dsh-hashline) · [`@hy-sde-org/dsh-tool-edit`](https://www.npmjs.com/package/@hy-sde-org/dsh-tool-edit)
+<!-- MIRROR-NOTE:END -->
+
 # dsh-tool-edit — the rich `edit` tool for DeepSeek Harness
 
 Two standalone packages, installable as **one plugin** for the DeepSeek
