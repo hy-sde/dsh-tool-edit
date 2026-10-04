@@ -30,7 +30,9 @@ It also bundles its **own LSP client**, so `formatOnWrite` and
 upstream changes** (the language server runs via `npx
 typescript-language-server` and degrades to edit-only when unavailable).
 
-**Why this exists.** For coding agents, much of the leverage is in the
+## Why
+
+For coding agents, much of the leverage is in the
 harness, not the model — the "harness problem" [Stencil So][stencil] frames
 well: the tool surface (how a model reads, edits, and is shown errors) often
 bounds reliability more than the model does. This plugin is harness work: a
