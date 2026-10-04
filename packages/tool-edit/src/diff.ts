@@ -102,9 +102,15 @@ function diffRange(a: string[], aLo: number, aHi: number, b: string[], bLo: numb
     out.push({ type: 'del', a: aLo, count: n })
     return
   }
-  if (n + m <= 64) {
+  if (n + m <= 64 || n < 2) {
     // Tiny block: emit as delete-all + insert-all. Optimal base cases are not
     // worth the bookkeeping; keeps the algorithm obviously correct.
+    // n < 2 must also take this path: mid = n >> 1 would be 0, the forward
+    // LCS table would be all zeros, bestJ would stay 0 when the single old
+    // line is absent from the new side, and the right half would recurse on
+    // identical arguments forever (RangeError: Maximum call stack size
+    // exceeded — reproduced with a 1-line old_string replaced by a ~95-line
+    // block that drops the marker).
     out.push({ type: 'del', a: aLo, count: n })
     out.push({ type: 'ins', a: aLo, b: bLo, count: m })
     return
