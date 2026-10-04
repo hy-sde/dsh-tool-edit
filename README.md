@@ -63,7 +63,7 @@ pnpm install --global @deepseek-ai/dsh
 
 Both packages are published on the npm registry under the `hy-sde-org`
 organization (`@hy-sde-org/dsh-hashline` and `@hy-sde-org/dsh-tool-edit`,
-version `0.1.2-rc.1`). Install the plugin straight from npm — the registry
+version `0.2.0-rc.2`). Install the plugin straight from npm — the registry
 resolves the hashline library dependency and the DeepSeek Harness peer
 packages automatically, no tarballs, no ordering:
 
@@ -88,8 +88,8 @@ npm install @hy-sde-org/dsh-tool-edit   # or pnpm add / yarn add
 npm install @hy-sde-org/dsh-hashline    # the engine, if you need it directly
 ```
 
-> **Registry notes.** `latest` is `0.1.2-rc.1` after the next publish. The
-> `0.1.2-rc.1` bundle uses the minimal-patch posture that boots on official
+> **Registry notes.** `latest` is `0.2.0-rc.2`. That bundle uses the
+> minimal-patch posture that boots on official
 > harness releases; the earlier `0.1.x` releases of `dsh-tool-edit` were
 > published before the rc.7 bundle posture (they mounted a self-contained fs
 > realm that requires the `enableEdit` harness feature and fails boot on stock
@@ -107,13 +107,13 @@ cd dsh-plugins
 pnpm install
 pnpm --filter @hy-sde-org/dsh-hashline build
 
-HASHLINE_TGZ="$(cd dsh-tool-edit/packages/hashline && pnpm pack --silent --pack-destination /tmp)"
+HASHLINE_TGZ="$(cd dsh-tool-edit/packages/hashline && pnpm pack --pack-destination /tmp | tail -n 1)"
 dsh plugin --profile web add "$HASHLINE_TGZ"
 
 # Pin hashline locally so the tool-edit tarball's dependency resolves offline.
 printf 'overrides:\n  "@hy-sde-org/dsh-hashline": "file:%s/packages/hashline"\n' "$PWD" >> "$DSH_HOME/profiles/web/pnpm-workspace.yaml"
 
-TOOLEDIT_TGZ="$(cd dsh-tool-edit/packages/tool-edit && pnpm pack --silent --pack-destination /tmp)"
+TOOLEDIT_TGZ="$(cd dsh-tool-edit/packages/tool-edit && pnpm pack --pack-destination /tmp | tail -n 1)"
 dsh plugin --profile web add "$TOOLEDIT_TGZ"
 ```
 
