@@ -42,6 +42,15 @@ claim is evidenced, not asserted.
 [stencil]: https://stencil.so/blog/the-harness-problem
 [benchmark]: benchmark/README.md
 
+## Prerequisites
+
+- Node.js 22.19 or newer (the packages' `engines` floor) with npm and pnpm on `PATH`;
+- a DeepSeek Harness installation including the standard `dsh` CLI — the peer baseline
+  is `@deepseek-ai/cordis ~4.0.4` and `@deepseek-ai/dsh-* ^0.2.0-rc.2` (the
+  minimal-patch posture below targets official harness releases rc.8 and later);
+- a `typescript-language-server` reachable via `npx` for format-on-write and
+  diagnostics — the tool degrades to edit-only when unavailable.
+
 ## Install
 
 ```bash
@@ -96,7 +105,7 @@ cd dsh-plugins
 pnpm install
 pnpm --filter @hy-sde-org/dsh-hashline build
 
-HASHLINE_TGZ="$(cd dsh-tool-edit/packages/hashline && ppnpm pack --silent --pack-destination /tmp)"
+HASHLINE_TGZ="$(cd dsh-tool-edit/packages/hashline && pnpm pack --silent --pack-destination /tmp)"
 dsh plugin --profile web add "$HASHLINE_TGZ"
 
 # Pin hashline locally so the tool-edit tarball's dependency resolves offline.
@@ -251,3 +260,13 @@ packages/tool-edit/   @hy-sde-org/dsh-tool-edit — the plugin (embedds the LSP 
   src/lsp/            embedded client: stdio framing, LSP client, provider,
                       writethrough (port of oh-my-pi's lsp writethrough)
 ```
+
+## License and attribution
+
+This package is licensed MIT — the same license as its upstream oh-my-pi
+(https://github.com/can1357/oh-my-pi). The hashline patch engine and the rich `edit`
+tool are a parity port of oh-my-pi's coding-agent edit tooling (MIT License,
+© Mario Zechner 2025, © Can Bölük 2025-2026); the upstream copyright holders are
+recorded in LICENSE next to this package's own notice, and the upstream notice text is
+reproduced in full in THIRD-PARTY-NOTICES.md. The TypeScript 7 native-launcher behavior
+tracks upstream oh-my-pi `530664c8f5` (see *LSP behavior on stock DSH* above).
