@@ -139,6 +139,29 @@ describe('Patcher snapshot tag integrity', () => {
       expect(message).toMatch(/never invent the tag/)
       // Still surfaces the current hash so the model can pivot to a re-read.
       expect(message).toMatch(/current file hashes to #[0-9A-F]{4}/)
+      // No recorded version carries the tag, so no origin path is named.
+      expect(message).not.toMatch(/was issued in this session/)
+    }
+    expect(fs.get(PATH)).toBe('current\n')
+  })
+
+  it('names the origin path when the tag was minted for another file in this session', async () => {
+    const fs = new InMemoryFilesystem([[PATH, 'current\n'], ['other.ts', 'other\n']])
+    const snapshots = new InMemorySnapshotStore()
+    const patcher = new Patcher({ fs, snapshots })
+    // The tag is real — recorded earlier in this session, but for a
+    // different file. The rejection points at that file instead of leaving
+    // a dead-end "not from this session".
+    const foreignTag = snapshots.record('other.ts', 'other\n')
+
+    try {
+      await patcher.apply(Patch.parse(`[${PATH}#${foreignTag}]\nPUT 1-1:\n+after`))
+      throw new Error('expected MismatchError')
+    } catch (error) {
+      expect(error).toBeInstanceOf(MismatchError)
+      const message = (error as MismatchError).displayMessage
+      expect(message).toMatch(/is not from this session/)
+      expect(message).toMatch(new RegExp(`Hash #${foreignTag} was issued in this session for other\\.ts\\.`))
     }
     expect(fs.get(PATH)).toBe('current\n')
   })

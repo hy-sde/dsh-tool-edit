@@ -9,11 +9,14 @@ import AgentRegistry from '@deepseek-ai/dsh-agent'
 import { createInboxStub } from '@deepseek-ai/dsh-agent-loop-testkit'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import LocalFileSystem from '@deepseek-ai/dsh-fs-local'
+import { FsTargetKey } from '@deepseek-ai/dsh-fs'
 import * as FsPolicy from '@deepseek-ai/dsh-fs-observation-policy'
-import { computeFileHash, getSessionSnapshotStore } from '@hy-sde-org/dsh-hashline'
+import { computeFileHash, getSessionSnapshotStore, InMemorySnapshotStore, Patch, type PatchSection } from '@hy-sde-org/dsh-hashline'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
+import { computeHashlineSectionDiff } from '../src/hashline/diff.ts'
 import { getSnapshotStore } from '../src/hashline/store.ts'
+import type { FileReader } from '../src/session.ts'
 import * as ToolEdit from '../src/index.ts'
 
 const contexts: Context[] = []
@@ -123,6 +126,32 @@ describe('tool-edit (hashline mode)', () => {
 
     const result = await call(ctx, owner, { input })
     expect(result.isError).toBe(true)
+    expect(await readFile(sample, 'utf8')).toBe(before)
+  })
+
+  it('names the origin file when a tag was minted for another file in this session', async () => {
+    const { ctx, root, owner } = await setup()
+    // Mint a real tag for origin.txt through an edit; the store then holds
+    // origin.txt under its post-edit hash.
+    const origin = join(root, 'origin.txt')
+    const originBefore = 'origin line one\norigin line two\n'
+    await writeFile(origin, originBefore)
+    const originEdit = await call(ctx, owner, {
+      input: `[${origin}#${computeFileHash(originBefore)}]\nPUT 1.=1:\n+origin line one (edited)\n`,
+    })
+    expect(originEdit.isError).toBe(false)
+
+    const sample = join(root, 'sample.txt')
+    const before = 'line one\nline two\n'
+    await writeFile(sample, before)
+    // Reuse origin.txt's post-edit tag on sample.txt: a tag this session
+    // really issued, just for another file — the rejection names it.
+    const foreignTag = computeFileHash('origin line one (edited)\norigin line two\n')
+    const input = `[${sample}#${foreignTag}]\nPUT 1.=1:\n+replacement\n`
+
+    const result = await call(ctx, owner, { input })
+    expect(result.isError).toBe(true)
+    expect(JSON.stringify(result)).toContain(`was issued in this session for ${origin}`)
     expect(await readFile(sample, 'utf8')).toBe(before)
   })
 })
@@ -340,5 +369,31 @@ describe('tool-edit (hashline mode) × default seen-line enforcement', () => {
     })
     expect(result.isError).toBe(false)
     expect(await readFile(sample, 'utf8')).toBe(DRAW_SOURCE.replace('0.230', '0.240'))
+  })
+})
+
+describe('tool-edit (hashline) × diff-preview mismatch origin', () => {
+  it('names the tag origin path in the preview mismatch error', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-tool-edit-preview-'))
+    roots.push(root)
+    const snapshots = new InMemorySnapshotStore()
+    const origin = join(root, 'origin.txt')
+    const originTag = snapshots.record(origin, 'origin line\n')
+    const sample = join(root, 'sample.txt')
+    const before = 'line one\nline two\n'
+    await writeFile(sample, before)
+    const reader: FileReader = {
+      resolve: async target => ({ targetKey: FsTargetKey(target), displayPath: target }),
+      stat: async () => undefined,
+      readText: async target => readFile(target.displayPath, 'utf8'),
+    }
+
+    // The preview shares the apply-time rejection shape: a tag issued for
+    // another file names that file instead of dead-ending.
+    const patch = Patch.parse(`[${sample}#${originTag}]\nPUT 1.=1:\n+replacement\n`)
+    const result = await computeHashlineSectionDiff(patch.sections[0] as PatchSection, root, snapshots, { reader })
+
+    expect('error' in result && result.error).toContain(`was issued in this session for ${origin}`)
+    expect(await readFile(sample, 'utf8')).toBe(before)
   })
 })

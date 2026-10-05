@@ -45,6 +45,12 @@ export interface MismatchDetails {
 	 * to `true` for backward compatibility with direct callers.
 	 */
   hashRecognized?: boolean
+  /**
+	 * Paths this session's store recorded under `expectedFileHash`, excluding
+	 * the file being written. When the tag turns out to be foreign, naming
+	 * where it was minted turns a dead-end rejection into a one-line fix.
+	 */
+  tagOriginPaths?: readonly string[]
 }
 
 /**
@@ -60,6 +66,7 @@ export class MismatchError extends Error {
   readonly fileLines: string[]
   readonly anchorLines: readonly number[]
   readonly hashRecognized: boolean
+  readonly tagOriginPaths: readonly string[]
 
   constructor(details: MismatchDetails) {
     super(MismatchError.formatMessage(details))
@@ -70,6 +77,7 @@ export class MismatchError extends Error {
     this.fileLines = details.fileLines
     this.anchorLines = details.anchorLines ?? []
     this.hashRecognized = details.hashRecognized ?? true
+    this.tagOriginPaths = details.tagOriginPaths ?? []
   }
 
   get displayMessage(): string {
@@ -80,6 +88,7 @@ export class MismatchError extends Error {
       fileLines: this.fileLines,
       anchorLines: this.anchorLines,
       hashRecognized: this.hashRecognized,
+      tagOriginPaths: this.tagOriginPaths,
     })
   }
 
@@ -87,8 +96,15 @@ export class MismatchError extends Error {
     const pathText = details.path ? ` for ${details.path}` : ''
     const hashRecognized = details.hashRecognized ?? true
     if (!hashRecognized) {
+      // A tag can be unrecognized for this file yet still come from this
+      // session — minted for another file. Naming those paths separates
+      // "wrong file, here is where it belongs" from "fabricated tag".
+      const origins = (details.tagOriginPaths ?? []).map(
+        origin => `Hash ${HL_FILE_HASH_SEP}${details.expectedFileHash} was issued in this session for ${origin}.`,
+      )
       return [
         `Edit rejected${pathText}: hash ${HL_FILE_HASH_SEP}${details.expectedFileHash} is not from this session.`,
+        ...origins,
         `The current file hashes to ${HL_FILE_HASH_SEP}${details.actualFileHash}. Re-read the file with \`read\` to copy a current ${HL_FILE_PREFIX}path${HL_FILE_HASH_SEP}tag${HL_FILE_SUFFIX} header — never invent the tag and never reuse one from a prior session.`,
       ]
     }

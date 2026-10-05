@@ -856,6 +856,21 @@ export class Patcher {
     }
     throw new Error(unseenLinesMessage(section.path, unseen, expected, { lines: revealed, truncated }))
   }
+  /**
+   * Paths this session's store recorded under `expected`, excluding the file
+   * being written — the likely origins of a foreign tag.
+   */
+  #tagOriginPaths(expected: string, canonicalPath: string): string[] {
+    return [
+      ...new Set(
+        this.snapshots
+          .findByHash(expected)
+          .map(snapshot => snapshot.path)
+          .filter(tagPath => tagPath !== canonicalPath),
+      ),
+    ]
+  }
+
   #mismatchError(
     section: PatchSection,
     canonicalPath: string,
@@ -871,6 +886,7 @@ export class Patcher {
       fileLines: normalized.split('\n'),
       anchorLines: section.collectAnchorLines(),
       hashRecognized,
+      tagOriginPaths: this.#tagOriginPaths(expected, canonicalPath),
     })
   }
 

@@ -67,6 +67,16 @@ function createMismatchError(
   snapshots: SnapshotStore,
   expected: string,
 ): MismatchError {
+  // Name where a foreign tag was minted in this session, mirroring the
+  // Patcher's apply-time rejection.
+  const tagOriginPaths = [
+    ...new Set(
+      snapshots
+        .findByHash(expected)
+        .map(snapshot => snapshot.path)
+        .filter(tagPath => tagPath !== absolutePath),
+    ),
+  ]
   return new MismatchError({
     path: section.path,
     expectedFileHash: expected,
@@ -74,6 +84,7 @@ function createMismatchError(
     fileLines: normalized.split('\n'),
     anchorLines: section.collectAnchorLines(),
     hashRecognized: snapshots.byHash(absolutePath, expected) !== null,
+    tagOriginPaths,
   })
 }
 
