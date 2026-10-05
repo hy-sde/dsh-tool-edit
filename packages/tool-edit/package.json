@@ -1,6 +1,6 @@
 {
   "name": "@hy-sde-org/dsh-tool-edit",
-  "version": "0.2.0-rc.2.1",
+  "version": "0.2.0-rc.2.2",
   "description": "The rich `edit` tool for DeepSeek Harness (replace / patch / apply_patch / hashline modes) with embedded format-on-write and diagnostics \u2014 a standalone plugin with no upstream harness changes required.",
   "type": "module",
   "main": "./dist/index.js",
