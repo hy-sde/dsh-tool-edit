@@ -152,7 +152,8 @@ describe('tool-edit (hashline mode)', () => {
 
     const result = await call(ctx, owner, { input })
     expect(result.isError).toBe(true)
-    expect(JSON.stringify(result)).toContain(`was issued in this session for ${origin}`)
+    const modelText = result.content.filter(b => b.type === 'text').map(b => b.text ?? '').join('')
+    expect(modelText).toContain(`was issued in this session for ${origin}`)
     expect(await readFile(sample, 'utf8')).toBe(before)
   })
 })
