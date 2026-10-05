@@ -111,3 +111,32 @@ export function diffLineRuns(oldText: string, newText: string): LineDiffRun[] {
     return { removed: true, count: op.count }
   })
 }
+
+/**
+ * Map every current-numbered line back through `oldText → newText`: the old
+ * line it images when it lands inside an unchanged run, `null` for added
+ * lines and lines inside rewritten spans. One diff walk fills the image for
+ * every line, instead of one full-file diff per anchor. Ported from
+ * @oh-my-pi/hashline's `shifted_images` (pi-edit patcher.rs, PR #14254).
+ */
+export function shiftedImages(oldText: string, newText: string): (number | null)[] {
+  const image: (number | null)[] = new Array(newText.split('\n').length).fill(null)
+  let oldLine = 1
+  let newLine = 1
+  for (const run of diffLineRuns(oldText, newText)) {
+    if (run.added) {
+      newLine += run.count
+      continue
+    }
+    if (run.removed) {
+      oldLine += run.count
+      continue
+    }
+    for (let i = 0; i < run.count; i++) {
+      if (newLine - 1 < image.length) image[newLine - 1] = oldLine
+      newLine++
+      oldLine++
+    }
+  }
+  return image
+}

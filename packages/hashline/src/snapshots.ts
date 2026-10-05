@@ -84,6 +84,18 @@ export abstract class SnapshotStore {
   }
 
   /**
+	 * Every retained version for `path`, newest-first. The patcher's
+	 * shift-rescue walks the ring to accept follow-up anchors the model
+	 * authored against pre-shift numbering (see
+	 * {@link Patcher.assertSeenLines}-side rescue). The base returns no
+	 * history (rescue disabled); stores that retain per-path version rings
+	 * override it.
+	 */
+  versions(_path: string): Snapshot[] {
+    return []
+  }
+
+  /**
 	 * Record the full normalized text of `path` and return its content tag.
 	 * `seenLines` (optional) are the 1-indexed lines the producer displayed;
 	 * they merge into {@link Snapshot.seenLines} across reads of identical text.
@@ -193,6 +205,13 @@ export class InMemorySnapshotStore extends SnapshotStore {
       }
     }
     return matches
+  }
+
+  override versions(path: string): Snapshot[] {
+    // `get` refreshes LRU recency, mirroring head()/byHash(). The array is
+    // copied so a caller cannot reorder the internal ring; the snapshots
+    // themselves are shared (same as findByHash).
+    return [...(this.#versions.get(path) ?? [])]
   }
 
   record(path: string, fullText: string, seenLines?: Iterable<number>): string {

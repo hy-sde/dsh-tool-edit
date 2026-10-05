@@ -24,12 +24,13 @@
  * Ported from @oh-my-pi/hashline (https://github.com/can1357/oh-my-pi). MIT License. Copyright (c) 2025 Mario Zechner, Copyright (c) 2025-2026 Can Bölük.
  */
 import * as path from 'node:path'
-import { applyEdits } from './apply.ts'
+import { applyEdits, findReplacementGroup } from './apply.ts'
 import { hasBlockEdit, resolveBlockEdits } from './block.ts'
 import { commitClipboard, forkClipboard, startClipboardBatch, validateClipboardSequence } from './clipboard.ts'
 import { computeFileHash, formatHashlineHeader } from './format.ts'
 import type { Filesystem, WriteResult } from './fs.ts'
 import { isNotFound } from './fs.ts'
+import { shiftedImages } from './line-diff.ts'
 import type { Patch, PatchSection } from './input.ts'
 import {
   HEADTAIL_DRIFT_WARNING,
@@ -210,6 +211,174 @@ function assertUniqueCanonicalPaths(prepared: readonly PreparedSection[]): void 
     }
     seen.set(entry.canonicalPath, entry.section.path)
   }
+}
+
+/**
+ * Minimum trimmed length, in chars, for a current-content line to count as
+ * shift-rescue evidence. Short closers (`}`, `});`) repeat everywhere;
+ * accepting on those would let stale anchors through.
+ */
+const SHIFT_RESCUE_EVIDENCE_MIN_CHARS = 8
+
+/** One replacement op's deleted anchors plus its payload body lines. */
+interface ReplaceGroup {
+  anchors: number[]
+  body: string[]
+}
+
+/**
+ * Group a section's replacement ops. The parser lowers a `PUT N.=M:` hunk to
+ * a run of replacement inserts immediately followed by the consumed lines'
+ * deletes, so each insert-run/delete-run pair is one op. Pure insertions and
+ * cuts carry no replaced content to evidence against, so they form no group.
+ */
+function replaceGroups(edits: readonly Edit[]): ReplaceGroup[] {
+  const groups: ReplaceGroup[] = []
+  let start = 0
+  while (start < edits.length) {
+    const group = findReplacementGroup(edits, start)
+    if (group === undefined) {
+      start++
+      continue
+    }
+    const anchors: number[] = []
+    for (let line = group.startLine; line <= group.endLine; line++) anchors.push(line)
+    groups.push({ anchors, body: group.payload })
+    start = (group.deleteIndices[group.deleteIndices.length - 1] ?? 0) + 1
+  }
+  return groups
+}
+
+/** One retained version's seen set plus its lines' images in the current text. */
+interface VersionMap {
+  seen: Set<number>
+  sameText: boolean
+  image: (number | null)[]
+}
+
+/**
+ * Snapshot histories newest-first into reusable shift mappings, skipping
+ * versions that displayed nothing.
+ */
+function versionMaps(versions: readonly Snapshot[], currentText: string): VersionMap[] {
+  const maps: VersionMap[] = []
+  for (const version of versions) {
+    const seen = version.seenLines
+    if (seen === undefined || seen.size === 0) continue
+    if (version.text === currentText) {
+      maps.push({ seen, sameText: true, image: [] })
+    } else {
+      maps.push({ seen, sameText: false, image: shiftedImages(version.text, currentText) })
+    }
+  }
+  return maps
+}
+
+/**
+ * True when `line` (current numbering) images a line some retained version
+ * displayed: the model saw exactly this content, only at another number.
+ */
+function imagesSeen(maps: readonly VersionMap[], line: number): boolean {
+  return maps.some((map) => {
+    if (map.sameText) return map.seen.has(line)
+    const source = map.image[line - 1]
+    return source !== null && source !== undefined && map.seen.has(source)
+  })
+}
+
+function isIdentChar(char: string | undefined): boolean {
+  return char !== undefined && /[\p{L}\p{N}_]/u.test(char)
+}
+
+/**
+ * True when `bodyLine` carries `evidence` as a token-bounded span: the line
+ * verbatim, or with edits around it (an appended comment, a wrapping call),
+ * but never as the prefix of a longer identifier or number (`foo(bar)` is
+ * not carried by `foo(bar_baz)`, `= 18` not by `= 180`).
+ */
+function lineCarries(bodyLine: string, evidence: string): boolean {
+  const startsIdent = isIdentChar(evidence[0])
+  const endsIdent = isIdentChar(evidence[evidence.length - 1])
+  const glued = (edgeIdent: boolean, neighbor: string | undefined) => edgeIdent && isIdentChar(neighbor)
+  let at = bodyLine.indexOf(evidence)
+  while (at !== -1) {
+    const before = at > 0 ? bodyLine[at - 1] : undefined
+    const after = bodyLine[at + evidence.length]
+    if (!glued(startsIdent, before) && !glued(endsIdent, after)) return true
+    at = bodyLine.indexOf(evidence, at + 1)
+  }
+  return false
+}
+
+/**
+ * Trimmed content of current line `line` when it is long enough to serve as
+ * evidence and occurs exactly once in the file. Repeated content cannot name
+ * which copy an anchor meant: a stale number could image a twin line.
+ */
+function uniqueEvidence(currentLines: readonly string[], line: number): string | null {
+  const content = currentLines[line - 1]?.trim()
+  if (content === undefined || content.length < SHIFT_RESCUE_EVIDENCE_MIN_CHARS) return null
+  let occurrences = 0
+  for (const other of currentLines) {
+    if (other.trim() === content) occurrences++
+  }
+  return occurrences === 1 ? content : null
+}
+
+/**
+ * Body evidence that an op targets `first..=last` as currently numbered: the
+ * payload carries the first anchor's current content and, for ranges, the
+ * last anchor's current content at or after it. Checking both ends is what
+ * rejects stale numbers whichever way lines moved: after lines shift down, a
+ * stale range's first line holds content from above the intended range;
+ * after lines shift up, its last line holds content from below it. Either
+ * way that end's content is absent from the payload.
+ */
+function bodyTargets(body: readonly string[], currentLines: readonly string[], first: number, last: number): boolean {
+  const head = uniqueEvidence(currentLines, first)
+  if (head === null) return false
+  const headAt = body.findIndex(row => lineCarries(row, head))
+  if (headAt === -1) return false
+  if (first === last) return true
+  const tail = uniqueEvidence(currentLines, last)
+  if (tail === null) return false
+  for (let tailAt = body.length - 1; tailAt >= headAt; tailAt--) {
+    const row = body[tailAt]
+    if (row !== undefined && lineCarries(row, tail)) return true
+  }
+  return false
+}
+
+/**
+ * Anchors the guard would reject that a shift-aware reading accepts: every
+ * unseen anchor of a replacement op images a displayed line of a retained
+ * version (same content, older number), and the payload carries the current
+ * content of both ends of the unseen span (see {@link bodyTargets}).
+ * Stale-numbered anchors fail the payload check and stay rejected, as do
+ * anchors no retained version displayed, ends too short or repeated to
+ * identify a line, and pure inserts/cuts (no payload to evidence against).
+ */
+function rescueShiftedAnchors(
+  section: PatchSection,
+  snapshots: SnapshotStore,
+  canonicalPath: string,
+  currentText: string,
+  unseen: readonly number[],
+): number[] {
+  const pending = new Set(unseen)
+  const currentLines = currentText.split('\n')
+  const maps = versionMaps(snapshots.versions(canonicalPath), currentText)
+  const rescued: number[] = []
+  for (const group of replaceGroups(section.parse().edits)) {
+    const groupUnseen = group.anchors.filter(line => pending.has(line))
+    const first = groupUnseen[0]
+    const last = groupUnseen[groupUnseen.length - 1]
+    if (first === undefined || last === undefined) continue
+    if (bodyTargets(group.body, currentLines, first, last) && groupUnseen.every(line => imagesSeen(maps, line))) {
+      rescued.push(...groupUnseen)
+    }
+  }
+  return rescued
 }
 
 /**
@@ -616,6 +785,14 @@ export class Patcher {
 	 * on the no-drift path, where anchor line numbers index the tagged content
 	 * 1:1.
 	 *
+	 * On the no-drift path (`rescue` provided) a shift-aware reading applies
+	 * first: anchors left unseen by their number may still have been displayed
+	 * under an older numbering, and the replacement payload itself proves
+	 * which lines the op means — see {@link rescueShiftedAnchors}. The drift
+	 * path passes no `rescue`: its anchors index the tagged snapshot's
+	 * numbering, not the live text, so the rescue's content checks do not
+	 * transfer and unseen anchors stay rejected.
+	 *
 	 * The rejection inlines the actual file content at the unseen anchor lines
 	 * (from `matchedSnapshot.text`, which by definition equals the live
 	 * normalized content) so the model can verify what it was about to touch.
@@ -632,11 +809,24 @@ export class Patcher {
 	 * (over-cap retry → tail reveal → next retry applies), nor coax the tool
 	 * into dumping a minified megabyte-wide line into the error preview.
 	 */
-  #assertSeenLines(section: PatchSection, expected: string, matchedSnapshot: Snapshot | null): void {
+  #assertSeenLines(
+    section: PatchSection,
+    expected: string,
+    matchedSnapshot: Snapshot | null,
+    rescue?: { canonicalPath: string; currentText: string },
+  ): void {
     const seen = matchedSnapshot?.seenLines
     if (!seen || seen.size === 0) return
-    const unseen = section.collectAnchorLines().filter(line => !seen.has(line))
+    let unseen = section.collectAnchorLines().filter(line => !seen.has(line))
     if (unseen.length === 0) return
+    if (rescue !== undefined && matchedSnapshot !== null) {
+      const rescued = rescueShiftedAnchors(section, this.snapshots, rescue.canonicalPath, rescue.currentText, unseen)
+      if (rescued.length > 0) {
+        const rescuedSet = new Set(rescued)
+        unseen = unseen.filter(line => !rescuedSet.has(line))
+        if (unseen.length === 0) return
+      }
+    }
     const sourceLines = matchedSnapshot.text.split('\n')
     const revealed: RevealedLine[] = []
     const revealCount = Math.min(unseen.length, SEEN_LINE_REVEAL_CAP)
@@ -744,7 +934,7 @@ export class Patcher {
       // Reject any anchor the read never displayed: editing lines the model
       // has not seen is the off-by-memory mistake that mangles files.
       if (expected !== undefined && this.#enforceSeenLines) {
-        this.#assertSeenLines(section, expected, matchedSnapshot)
+        this.#assertSeenLines(section, expected, matchedSnapshot, { canonicalPath, currentText: normalized })
       }
       const result = applyEdits(normalized, resolved, { clipboard, path: canonicalPath })
       return withResolveWarnings(blockResolutions.length > 0 ? { ...result, blockResolutions } : result)
