@@ -16,6 +16,7 @@ import {
   buildCompactDiffPreview,
   type Clipboard,
   commitClipboard,
+  diffLineRuns,
   forkClipboard,
   MismatchError as HashlineMismatchError,
   normalizeToLF,
@@ -95,24 +96,67 @@ export function seenLinesFromBody(text: string): number[] {
 }
 
 /**
- * Register the numbered rows a rendered section result displayed as seen
- * lines on the snapshot version its tag names (the post-edit content the
- * patcher just recorded). Upstream terminates a successful edit's response
- * with this same registration, making the displayed rows anchorable for a
- * follow-up edit against the NEW tag; a line hidden under elision stays
- * rejected.
+ * Prior-snapshot lines that keep both their number and content in `after`:
+ * every unchanged run the edit did not shift (the leading run, plus runs
+ * below line-neutral hunks), filtered by what `prior` displayed. A missing
+ * or unrestricted prior snapshot let the edit anchor anywhere, so every
+ * such run carries over. Shifted lines never carry: their old numbers name
+ * other content.
+ */
+export function carriedSeenLines(before: string, after: string, prior: ReadonlySet<number> | undefined): number[] {
+  const seen = prior !== undefined && prior.size > 0 ? prior : undefined
+  const carried: number[] = []
+  let oldLine = 1
+  let newLine = 1
+  for (const run of diffLineRuns(before, after)) {
+    if (run.added) {
+      newLine += run.count
+      continue
+    }
+    if (run.removed) {
+      oldLine += run.count
+      continue
+    }
+    if (oldLine === newLine) {
+      for (let i = 0; i < run.count; i++) {
+        const line = oldLine + i
+        if (seen === undefined || seen.has(line)) carried.push(line)
+      }
+    }
+    oldLine += run.count
+    newLine += run.count
+  }
+  return carried
+}
+
+/**
+ * Register the lines a rendered section result leaves anchorable on the
+ * snapshot version its tag names (the post-edit content the patcher just
+ * recorded): rows the model read before an update that the edit kept at
+ * their line with their content ({@link carriedSeenLines}), plus the
+ * numbered rows the result itself displays. Upstream terminates a
+ * successful edit's response with this same registration, making both
+ * anchorable for a follow-up edit against the NEW tag; a line hidden under
+ * elision stays rejected.
  */
 function recordRenderedSeenLines(
   snapshots: SnapshotStore,
   result: PatchSectionResult,
   text: string,
 ): void {
+  const recorded = normalizeToLF(stripBom(result.written).text)
   // Drift guard (mirrors upstream): when what actually landed differs from
   // `after`, the tag and header name the RECORDED text while the rendered
   // preview rows are numbered against `after` — marking them seen would mint
-  // bogus provenance, so nothing registers.
-  if (normalizeToLF(stripBom(result.written).text) !== result.after) return
-  const seen = seenLinesFromBody(text)
+  // bogus provenance, so only carried lines register.
+  const drifted = recorded !== result.after
+  const seen: number[] = []
+  // Only updates carry: a create has no prior text to prove lines against.
+  if (result.op === 'update') {
+    const prior = snapshots.byContent(result.canonicalPath, result.before)?.seenLines
+    seen.push(...carriedSeenLines(result.before, recorded, prior))
+  }
+  if (!drifted) seen.push(...seenLinesFromBody(text))
   if (seen.length === 0) return
   // A moved file carries its provenance to the destination: the patcher
   // already rewrote `canonicalPath` to the destination canonical path and

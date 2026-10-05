@@ -15,6 +15,7 @@ import { computeFileHash, getSessionSnapshotStore, InMemorySnapshotStore, Patch,
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
 import { computeHashlineSectionDiff } from '../src/hashline/diff.ts'
+import { carriedSeenLines } from '../src/hashline/execute.ts'
 import { getSnapshotStore } from '../src/hashline/store.ts'
 import type { FileReader } from '../src/session.ts'
 import * as ToolEdit from '../src/index.ts'
@@ -395,5 +396,121 @@ describe('tool-edit (hashline) × diff-preview mismatch origin', () => {
 
     expect('error' in result && result.error).toContain(`was issued in this session for ${origin}`)
     expect(await readFile(sample, 'utf8')).toBe(before)
+  })
+})
+
+describe('tool-edit (hashline mode) × carried read provenance', () => {
+  /**
+   * Composition with seen-line enforcement, as the GUI mounts it. The
+   * plugins workspace has no dsh-tool-fs and mounts no read policy here —
+   * the provenance flows through the same shared session snapshot store the
+   * edit self-registers against (mirrors `provenanceStack`).
+   */
+  async function carriedStack() {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-tool-edit-carried-'))
+    roots.push(root)
+    const ctx = new Context()
+    contexts.push(ctx)
+    await ctx.plugin(SystemPrompt)
+    await ctx.plugin(ToolRuntime)
+    await ctx.plugin(AgentRegistry)
+    await ctx.plugin(LocalFileSystem, { cwd: root })
+    const fiber = await ctx.plugin(ToolEdit, { enforceSeenLines: true })
+    return { ctx, root, fiber, owner: agent(ctx, root) }
+  }
+
+  function modelText(result: { content: { type: string; text?: string }[] }): string {
+    return result.content.filter(b => b.type === 'text').map(b => b.text).join('')
+  }
+
+  /** Hashline header `[path#TAG]` tag from a rendered read/edit result. */
+  function tagFrom(text: string): string | undefined {
+    return /\[[^\]#]+#([0-9A-F]{4})\]/.exec(text)?.[1]
+  }
+
+  /** 40-line file whose line 35 the read displayed. */
+  function fortyLines(): { lines: string[]; source: string } {
+    const lines = Array.from({ length: 40 }, (_, i) => `line${i + 1}`)
+    return { lines, source: `${lines.join('\n')}\n` }
+  }
+
+  it('keeps a displayed line anchorable across a line-neutral hunk elsewhere in the file', async () => {
+    const { ctx, root, owner } = await carriedStack()
+    const sample = join(root, 'neutral.txt')
+    const { lines, source } = fortyLines()
+    await writeFile(sample, source)
+    const store = getSessionSnapshotStore(owner.session)
+    const tag = store.record(sample, source, lines.map((_, i) => i + 1))
+
+    // Insert above line 35 and cut below it — net-zero, so line 35 keeps
+    // its number and content. The rendered result only previews the touched
+    // hunks, so without carried provenance line 35 would go unseen on the
+    // post-edit tag and the follow-up edit would bounce.
+    const first = await call(ctx, owner, {
+      input: `[${sample}#${tag}]\nPUT <10:\n+inserted line\nCUT 30\n`,
+    })
+    expect(first.isError).toBe(false)
+    const edited = [...lines.slice(0, 9), 'inserted line', ...lines.slice(9, 29), ...lines.slice(30)]
+    const editedTag = tagFrom(modelText(first))
+    expect(editedTag).toBe(computeFileHash(`${edited.join('\n')}\n`))
+
+    const followup = await call(ctx, owner, {
+      input: `[${sample}#${editedTag}]\nPUT 35.=35:\n+line35 (edited)\n`,
+    })
+    expect(followup.isError).toBe(false)
+    expect(await readFile(sample, 'utf8')).toBe(
+      `${[...edited.slice(0, 34), 'line35 (edited)', ...edited.slice(35)].join('\n')}\n`,
+    )
+  })
+
+  it('does not carry a line the edit shifted — its old number names other content', async () => {
+    const { ctx, root, owner } = await carriedStack()
+    const sample = join(root, 'shifted.txt')
+    const { lines, source } = fortyLines()
+    await writeFile(sample, source)
+    const store = getSessionSnapshotStore(owner.session)
+    const tag = store.record(sample, source, lines.map((_, i) => i + 1))
+
+    const first = await call(ctx, owner, {
+      input: `[${sample}#${tag}]\nPUT <10:\n+inserted line\nCUT 30\n`,
+    })
+    expect(first.isError).toBe(false)
+    const edited = [...lines.slice(0, 9), 'inserted line', ...lines.slice(9, 29), ...lines.slice(30)]
+    const editedTag = tagFrom(modelText(first))
+
+    // Old line 16 now sits at 17; number 16 names line15. Carried
+    // provenance covers only unshifted lines, so the stale anchor rejects.
+    const stale = await call(ctx, owner, {
+      input: `[${sample}#${editedTag}]\nPUT 16.=16:\n+line16 (edited)\n`,
+    })
+    expect(stale.isError).toBe(true)
+    expect(await readFile(sample, 'utf8')).toBe(`${edited.join('\n')}\n`)
+  })
+
+  // NOTE (mirror): the fork's "registers carried lines even when the write
+  // drifts from the previewed text" test is not ported. It produces the
+  // drift with an injectable fake `lsp` service whose formatter output the
+  // fork's EditFilesystem persists (writeText returns the formatted text).
+  // The standalone plugin's EditFilesystem deliberately keeps the authored
+  // view (`return { text: content }`), so `result.written` can never differ
+  // from `result.after` in the hashline path and the drift branch is
+  // unreachable through the public edit tool. Porting the test would require
+  // changing the plugin's write-path semantics, which is outside this
+  // harvest; `carriedSeenLines` itself stays covered by the pure-function
+  // test below, and the no-drift registration by the two integration tests
+  // above.
+  it('carries only unshifted runs; a missing prior lets every unshifted line carry', async () => {
+    const before = 'a\nb\nc\nd\ne\n'
+    // Net-zero hunk at the top: c/d/e keep number and content; the leading
+    // run carries too; the changed line does not.
+    const after = 'A\nb\nc\nd\ne\n'
+    expect(carriedSeenLines(before, after, new Set([1, 2, 5]))).toEqual([2, 5])
+    // No prior snapshot (or an unrestricted one): every unshifted line
+    // carries, since the edit could anchor anywhere. The rewrite models as
+    // remove+add, so the equal run starts at 2; the trailing split artifact
+    // rides along, exactly as upstream's split does.
+    expect(carriedSeenLines(before, after, undefined)).toEqual([2, 3, 4, 5, 6])
+    // Pure shift: nothing keeps its number, nothing carries.
+    expect(carriedSeenLines('x\na\nb\nc\nd\ne\n', before, new Set([1, 2, 3, 4, 5]))).toEqual([])
   })
 })
