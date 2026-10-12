@@ -58,5 +58,5 @@ peer dependencies, not copied source.
 and declares peer dependencies on the published DeepSeek Harness packages
 (`@deepseek-ai/cordis`, `dsh-tools`, `dsh-fs`, `dsh-fs-local`,
 `dsh-fs-observation-policy`, `dsh-sandbox`, `dsh-sandbox-policy`,
-`dsh-session`, `dsh-system-prompt`, `dsh-invariants`), all served from the
+`dsh-session`, `dsh-system-prompt`), all served from the
 npm registry under their published licenses.
