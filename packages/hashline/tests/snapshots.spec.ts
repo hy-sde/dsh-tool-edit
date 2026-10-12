@@ -69,6 +69,31 @@ describe('InMemorySnapshotStore', () => {
     expect(store.head(PATH)).toBeNull()
   })
 
+  // Ported from oh-my-pi store.rs provenance_growth_evicts_older_history_
+  // without_discarding_current (b3458f5073): seen-line growth re-counts
+  // against the budget and evicts the oldest path history, never the one
+  // that grew. Fork budget math: "old" ≈ 8_042 B, "current" 118 B → after
+  // 299 added lines ≈ 6_098 B, 14_140 > 14_000 evicts "old"; repeated
+  // merges add nothing further.
+  it('evicts an older history when provenance growth exceeds the budget, keeping the current one', () => {
+    const store = new InMemorySnapshotStore({ maxPaths: 10, maxVersionsPerPath: 4, maxTotalBytes: 14_000 })
+    store.record('old', 'x'.repeat(8_000))
+    const hash = store.record('current', 'read', [1])
+    const held = store.head('current')
+    expect(store.head('old')).not.toBeNull()
+    store.recordSeenLines('current', hash, Array.from({ length: 299 }, (_, index) => index + 2))
+    expect(store.head('old')).toBeNull()
+    expect(store.head('current')?.seenLines?.size).toBe(300)
+    // Unlike upstream's Arc copy-on-write, the fork merges seenLines in
+    // place: the caller-held reference is the live set, so it sees the
+    // growth too (300, not 1).
+    expect(held?.seenLines?.size).toBe(300)
+    for (let index = 0; index < 4; index++) {
+      store.recordSeenLines('current', hash, Array.from({ length: 299 }, (_, offset) => offset + 2))
+    }
+    expect(store.head('current')?.seenLines?.size).toBe(300)
+  })
+
   // The tokens.rs incident: a tag minted early in a session touching dozens
   // of files aged out of the path LRU, downgrading a recoverable stale-tag
   // mismatch to the misleading "hash is not from this session" rejection.

@@ -130,7 +130,11 @@ export abstract class SnapshotStore {
 // DEFAULT_MAX_TOTAL_BYTES, so a high path count costs little.
 const DEFAULT_MAX_PATHS = 256
 const DEFAULT_MAX_VERSIONS_PER_PATH = 4
-/** Global ceiling on retained snapshot text across all paths (UTF-16 code units). */
+/**
+ * Global ceiling on retained snapshot allocations across all paths, measured
+ * in estimated bytes. LRU bookkeeping and caller-held snapshot references
+ * are outside this budget.
+ */
 const DEFAULT_MAX_TOTAL_BYTES = 64 * 1024 * 1024
 
 /** Union `lines` into `snapshot.seenLines`, lazily creating the set. */
@@ -146,11 +150,27 @@ export interface InMemorySnapshotStoreOptions {
   /** Maximum full-file versions retained per path (default 4). Oldest dropped first. */
   maxVersionsPerPath?: number
   /**
-	 * Global ceiling on retained snapshot text summed across every path's
-	 * version history, measured in UTF-16 code units (default 64 MiB).
+	 * Global ceiling on retained snapshot allocations summed across every
+	 * path's version history, measured in estimated bytes (default 64 MiB).
 	 * Least-recently-used path histories are evicted to stay under it.
 	 */
   maxTotalBytes?: number
+}
+
+/**
+ * Estimated retained size of one stored version, in bytes. Mirrors the
+ * upstream `StoredSnapshot::retained_bytes` accounting (oh-my-pi b3458f5073):
+ * the path and tag strings, the text body plus two header words
+ * (word-aligned), and a per-line seen-lines allowance of a value slot plus
+ * two link words plus the set object itself. The fork stores seenLines as a
+ * `Set` with no exposed layout, so the figures are an estimate, not a
+ * measurement.
+ */
+function versionRetainedBytes(version: Snapshot): number {
+  const textBytes = Math.ceil((version.text.length + 2 * 8) / 8) * 8
+  const seenBytes =
+    version.seenLines === undefined ? 0 : 2 * 8 + 3 * 8 + version.seenLines.size * (4 + 2 * 8)
+  return version.path.length + version.hash.length + textBytes + seenBytes
 }
 
 /**
@@ -174,9 +194,12 @@ export class InMemorySnapshotStore extends SnapshotStore {
     this.#versions = new LRUCache<string, Snapshot[]>({
       max: options.maxPaths ?? DEFAULT_MAX_PATHS,
       maxSize: options.maxTotalBytes ?? DEFAULT_MAX_TOTAL_BYTES,
-      sizeCalculation: (history) => {
-        let total = 1
-        for (const version of history) total += version.text.length
+      // Upstream PathHistory::retained_bytes: the map slot for the path key
+      // plus one slot per retained version in the ring, then each version's
+      // own retention (see versionRetainedBytes).
+      sizeCalculation: (history, path) => {
+        let total = path.length + history.length * 2 * 8
+        for (const version of history) total += versionRetainedBytes(version)
         return total
       },
     })
@@ -231,9 +254,12 @@ export class InMemorySnapshotStore extends SnapshotStore {
       // newly-displayed lines so re-reading more of the file widens coverage.
       existing.recordedAt = Date.now()
       mergeSeenLines(existing, seenLines)
-      if (history[0] !== existing) {
-        this.#versions.set(path, [existing, ...history.filter(version => version !== existing)])
-      }
+      // The merge above can grow the history's calculated size; re-set so
+      // the LRU recomputes and evicts when the budget is exceeded.
+      this.#versions.set(
+        path,
+        history[0] === existing ? history : [existing, ...history.filter(version => version !== existing)],
+      )
       return hash
     }
 
@@ -244,8 +270,14 @@ export class InMemorySnapshotStore extends SnapshotStore {
   }
 
   recordSeenLines(path: string, hash: string, lines: Iterable<number>): void {
-    const version = this.#versions.get(path)?.find(snapshot => snapshot.hash === hash)
-    if (version) mergeSeenLines(version, lines)
+    // Provenance growth counts against the budget: re-set the mutated
+    // history so the LRU recomputes its size and evicts when over — the
+    // oldest path's history goes first (upstream b3458f5073).
+    const history = this.#versions.get(path)
+    const version = history?.find(snapshot => snapshot.hash === hash)
+    if (version === undefined || history === undefined) return
+    mergeSeenLines(version, lines)
+    this.#versions.set(path, history)
   }
 
   invalidate(path: string): void {
