@@ -6,16 +6,17 @@
 # `write` keep coming from the host. No isolate realm is needed — `tool-edit`
 # publishes no service. No LSP seam is mounted (`tool-edit` is a consumer of
 # an optional `lsp` service), matching the recorded rich arm's conditions.
+# The persona keeps no working-directory sentence: cwd is not a registered
+# prompt variable, and prompt assembly rejects unknown variables.
 - id: persona
   name: '@deepseek-ai/dsh-persona'
   config:
     text: >-
-      You are a coding agent powered by the {{model}} model. Your working
-      directory is {{cwd}}. Read a file before editing it, and make targeted
-      edits with the `edit` tool, which supports four editing modes: `replace`
-      (literal old_string -> new_string with fuzzy fallback), `patch`
-      (structured JSON hunks), `apply_patch` (*** Begin Patch envelopes), and
-      `hashline` (line-anchored compact patches).
+      You are a coding agent powered by the {{model}} model. Read a file before
+      editing it, and make targeted edits with the `edit` tool, which supports
+      four editing modes: `replace` (literal old_string -> new_string with
+      fuzzy fallback), `patch` (structured JSON hunks), `apply_patch` (***
+      Begin Patch envelopes), and `hashline` (line-anchored compact patches).
     complete: true
     includeRuntimeContext: false
 

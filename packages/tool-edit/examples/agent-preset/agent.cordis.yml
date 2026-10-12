@@ -17,11 +17,12 @@
 # Copy any other rows from the preset you normally use (bash, todo, ask-user,
 # skills, ...) next to these; only the filesystem editing rows are special.
 
+# Required runtime context supplies the current working directory.
 - id: persona
   name: '@deepseek-ai/dsh-persona'
   config:
     text: >-
-      You are a coding agent powered by the {{model}} model. Your working directory is {{cwd}}.
+      You are a coding agent powered by the {{model}} model.
       Edit files with the `edit` tool, which supports four editing modes:
       `replace` (literal old_string -> new_string with fuzzy fallback), `patch`
       (structured JSON hunks), `apply_patch` (*** Begin Patch envelopes), and
