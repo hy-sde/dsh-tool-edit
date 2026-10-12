@@ -7,12 +7,13 @@
 #
 # The persona is `complete`, so both arms share a byte-identical system
 # prompt and runtime-context snapshots are suppressed, keeping the A/B clean.
+# The persona keeps no working-directory sentence: cwd is not a registered
+# prompt variable, and prompt assembly rejects unknown variables.
 - id: persona
   name: '@deepseek-ai/dsh-persona'
   config:
     text: >-
-      You are a coding agent powered by the {{model}} model. Your working
-      directory is {{cwd}}. Read a file before editing it, and make targeted
-      edits with the `edit` tool.
+      You are a coding agent powered by the {{model}} model. Read a file before
+      editing it, and make targeted edits with the `edit` tool.
     complete: true
     includeRuntimeContext: false
