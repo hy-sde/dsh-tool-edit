@@ -358,3 +358,108 @@ describe('path aliases and no-op edits', () => {
     expect(await readFile(sample, 'utf8')).toBe('fresh\n')
   })
 })
+
+// Ported from oh-my-pi crates/pi-edit/tests/fixtures/apply_patch/core.json
+// (first-match binding, commits 1bf55e7414, b2a8496255, 5d999d5868, 0142429b5d):
+// a context-free hunk whose lines occur more than once binds to the first
+// exact or whitespace/unicode-normalized match at or after the previous hunk,
+// like Codex; looser matches, narrowed variants and matches that would wrap
+// behind the previous hunk still require a unique occurrence.
+describe('tool-edit (apply_patch mode) first-match binding', () => {
+  async function applyEnvelope(content: string, hunkLines: string[]) {
+    const { ctx, root, owner } = await setup({ mode: 'apply_patch' })
+    const sample = join(root, 'a.txt')
+    await writeFile(sample, content)
+    const input = ['*** Begin Patch', `*** Update File: ${sample}`, ...hunkLines, '*** End Patch', ''].join('\n')
+    const result = await call(ctx, owner, { input })
+    return { result, sample }
+  }
+
+  it('context-free hunk takes the first of repeated lines', async () => {
+    const { result, sample } = await applyEnvelope('x\na\nx\nb\n', ['@@', '-x', '+y'])
+    expect(result.isError).toBe(false)
+    expect(await readFile(sample, 'utf8')).toBe('y\na\nx\nb\n')
+  })
+
+  it('context-free hunks bind to successive repeated lines', async () => {
+    const { result, sample } = await applyEnvelope('x\na\nx\nb\n', ['@@', '-x', '+y', '@@', '-x', '+z'])
+    expect(result.isError).toBe(false)
+    expect(await readFile(sample, 'utf8')).toBe('y\na\nz\nb\n')
+  })
+
+  it('first-match binding does not wrap behind the previous hunk', async () => {
+    const { result, sample } = await applyEnvelope('x\nx\nz\n', ['@@', '-z', '+Z', '@@', '-x', '+y'])
+    expect(result.isError).toBe(true)
+    expect(text(result)).toContain(`Found 2 occurrences in ${sample}`)
+    expect(await readFile(sample, 'utf8')).toBe('x\nx\nz\n')
+  })
+
+  it('ambiguous fuzzy hunk is rejected, not bound to the first candidate', async () => {
+    const { result, sample } = await applyEnvelope('const timeoutMs = 1000;\nother\nconst timeoutMs = 2000;\n', [
+      '@@',
+      '-const timeoutMs = 3000;',
+      '+const timeoutMs = 5000;',
+      '@@',
+      '-other',
+      '+OTHER',
+    ])
+    expect(result.isError).toBe(true)
+    expect(text(result)).toContain(`Found 2 occurrences in ${sample}`)
+    expect(await readFile(sample, 'utf8')).toBe('const timeoutMs = 1000;\nother\nconst timeoutMs = 2000;\n')
+  })
+
+  it('single ambiguous fuzzy hunk is rejected', async () => {
+    const { result, sample } = await applyEnvelope('const timeoutMs = 1000;\nother\nconst timeoutMs = 2000;\n', [
+      '@@',
+      '-const timeoutMs = 3000;',
+      '+const timeoutMs = 5000;',
+    ])
+    expect(result.isError).toBe(true)
+    expect(text(result)).toContain(`Found 2 occurrences in ${sample}`)
+    expect(await readFile(sample, 'utf8')).toBe('const timeoutMs = 1000;\nother\nconst timeoutMs = 2000;\n')
+  })
+
+  it('single hunk matching part of a line replaces only that part', async () => {
+    const body = 'function f() {\n    if (isEnabled(featureFlagName) && user.isAdmin()) {\n        run();\n    }\n}\n'
+    const { result, sample } = await applyEnvelope(body, ['@@', '-isAdmin()', '+isOwner()'])
+    expect(result.isError).toBe(false)
+    expect(await readFile(sample, 'utf8')).toBe(body.replace('user.isAdmin()', 'user.isOwner()'))
+  })
+
+  it('single hunk repeated only after unicode normalization takes the first', async () => {
+    const { result, sample } = await applyEnvelope('title – one\nmid\ntitle – one\n', ['@@', '-title - one', '+title - two'])
+    expect(result.isError).toBe(false)
+    expect(await readFile(sample, 'utf8')).toBe('title - two\nmid\ntitle – one\n')
+  })
+
+  it('single multi-line hunk repeated only after trimming takes the first', async () => {
+    const { result, sample } = await applyEnvelope('  a\n  b\nmid\n  a\n  b\n', ['@@', '-a', '-b', '+c'])
+    expect(result.isError).toBe(false)
+    expect(await readFile(sample, 'utf8')).toBe('  c\nmid\n  a\n  b\n')
+  })
+
+  it('single ambiguous fuzzy hunk is rejected when the better candidate comes later', async () => {
+    const body = 'const requestTimeoutMilliseconds = 1200;\nother\nconst requestTimeoutMilliseconds = 3001;\n'
+    const { result, sample } = await applyEnvelope(body, [
+      '@@',
+      '-const requestTimeoutMilliseconds = 3000;',
+      '+const requestTimeoutMilliseconds = 5000;',
+    ])
+    expect(result.isError).toBe(true)
+    expect(text(result)).toContain(`Found 2 occurrences in ${sample}`)
+    expect(await readFile(sample, 'utf8')).toBe(body)
+  })
+
+  it('JSON patch mode keeps the uniqueness check for repeated lines', async () => {
+    const { ctx, root, owner } = await setup()
+    const sample = join(root, 'a.txt')
+    await writeFile(sample, 'x\na\nx\nb\n')
+    const result = await call(ctx, owner, {
+      path: sample,
+      edits: [{ op: 'update', diff: '@@\n-x\n+y\n' }],
+    })
+    expect(result.isError).toBe(true)
+    expect(text(result)).toContain(`Found 2 occurrences in ${sample}`)
+    expect(await readFile(sample, 'utf8')).toBe('x\na\nx\nb\n')
+  })
+})

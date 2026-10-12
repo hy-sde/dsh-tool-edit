@@ -234,6 +234,7 @@ async function runApplyPatch(ctx: Context, resolved: ResolvedConfig, args: Recor
         ...(entry.op === undefined ? {} : { op: entry.op }),
         ...(entry.rename === undefined ? {} : { rename: entry.rename }),
         ...(entry.diff === undefined ? {} : { diff: entry.diff }),
+        ...(entry.firstMatch === undefined ? {} : { firstMatch: entry.firstMatch }),
       },
       ...(exec.signal === undefined ? {} : { signal: exec.signal }),
       allowFuzzy: resolved.fuzzyMatch,

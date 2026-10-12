@@ -47,6 +47,8 @@ export interface ApplyPatchEntry {
   op?: 'create' | 'delete' | 'update'
   rename?: string
   diff?: string
+  /** Codex first-match binding; see {@link PatchInput.firstMatch}. */
+  firstMatch?: boolean
 }
 
 /**
@@ -111,7 +113,9 @@ function parseApplyPatchWithOptions(patchText: string, options: ParseApplyPatchO
         }
       }
 
-      hunks.push({ path, op: 'create', diff: contents })
+      // The apply_patch envelope binds context-free hunks to the first match
+      // (Codex semantics); the JSON `patch` mode keeps the uniqueness check.
+      hunks.push({ path, op: 'create', diff: contents, firstMatch: true })
       remaining = remaining.slice(consumed)
       lineNumber += consumed
       continue
@@ -119,7 +123,7 @@ function parseApplyPatchWithOptions(patchText: string, options: ParseApplyPatchO
 
     if (firstLine.startsWith(DELETE_FILE_MARKER)) {
       const path = firstLine.slice(DELETE_FILE_MARKER.length)
-      hunks.push({ path, op: 'delete' })
+      hunks.push({ path, op: 'delete', firstMatch: true })
       remaining = remaining.slice(1)
       lineNumber++
       continue
@@ -157,13 +161,13 @@ function parseApplyPatchWithOptions(patchText: string, options: ParseApplyPatchO
 
       if (diffLines.length === 0) {
         if (streaming) {
-          hunks.push({ path, op: 'update', diff: '', ...(movePath === undefined ? {} : { rename: movePath }) })
+          hunks.push({ path, op: 'update', diff: '', firstMatch: true, ...(movePath === undefined ? {} : { rename: movePath }) })
           continue
         }
         throw new ParseError(`Update file hunk for path '${path}' is empty`, lineNumber)
       }
 
-      hunks.push({ path, op: 'update', diff: diffLines.join('\n'), ...(movePath === undefined ? {} : { rename: movePath }) })
+      hunks.push({ path, op: 'update', diff: diffLines.join('\n'), firstMatch: true, ...(movePath === undefined ? {} : { rename: movePath }) })
       continue
     }
 
