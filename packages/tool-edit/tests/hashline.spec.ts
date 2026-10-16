@@ -374,6 +374,131 @@ describe('tool-edit (hashline mode) × default seen-line enforcement', () => {
   })
 })
 
+describe('tool-edit (hashline mode) × column-cut wide lines (upstream #15649)', () => {
+  // NOTE: the plugins workspace has no dsh-tool-fs, so read provenance is
+  // minted directly through the shared session snapshot store — record(...)
+  // with exactly the seen-set a column-cut read (the fork's read half) would
+  // leave behind. Rejection behavior under test is identical.
+
+  /** Full composition with seen-line enforcement: real backend + rich editor. */
+  async function seenLineStack() {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-tool-edit-widelines-'))
+    roots.push(root)
+    const ctx = new Context()
+    contexts.push(ctx)
+    await ctx.plugin(SystemPrompt)
+    await ctx.plugin(ToolRuntime)
+    await ctx.plugin(AgentRegistry)
+    await ctx.plugin(LocalFileSystem, { cwd: root })
+    const fiber = await ctx.plugin(ToolEdit, { enforceSeenLines: true })
+    return { ctx, root, fiber, owner: agent(ctx, root) }
+  }
+
+  function modelText(result: { content: { type: string; text?: string }[] }): string {
+    return result.content.filter(b => b.type === 'text').map(b => b.text).join('')
+  }
+
+  it('rejects a PUT on a column-cut wide line until a full-width re-read shows it', async () => {
+    const { ctx, root, owner } = await seenLineStack()
+    const sample = join(root, 'wide.txt')
+    const wide = `${'a'.repeat(3000)}TAIL`
+    const source = `${wide}\nshort\n`
+    await writeFile(sample, source)
+
+    // Column-cut read: only the short line 2 was displayed; the wide line 1
+    // was cut at the display column limit and never registered as seen.
+    const store = getSessionSnapshotStore(owner.session)
+    const originalTag = store.record(sample, source, [2])
+    expect(originalTag).toBe(computeFileHash(source))
+
+    // PUT the truncated prefix: the pre-fix tree applied this and silently
+    // dropped the tail beyond the column cap; the guard now rejects it and
+    // names the full-width re-read remedy.
+    const truncated = 'a'.repeat(2000)
+    const rejected = await call(ctx, owner, {
+      input: `[${sample}#${originalTag}]\nPUT 1.=1:\n+${truncated}\n`,
+    })
+    expect(rejected.isError).toBe(true)
+    expect(modelText(rejected)).toContain('not fully displayed')
+    expect(await readFile(sample, 'utf8')).toBe(source)
+
+    // Retrying the same blind payload keeps rejecting: the tail is still unseen.
+    const retry = await call(ctx, owner, {
+      input: `[${sample}#${originalTag}]\nPUT 1.=1:\n+${truncated}\n`,
+    })
+    expect(retry.isError).toBe(true)
+    expect(await readFile(sample, 'utf8')).toBe(source)
+
+    // Full-width re-read: the wide line displays in full and widens the seen
+    // set under the reused tag (record unions on unchanged content — the same
+    // re-mint the fork's read tool performs), so the tail-preserving edit applies.
+    store.record(sample, source, [1, 2])
+
+    const replacement = `b${wide.slice(1)}`
+    const applied = await call(ctx, owner, {
+      input: `[${sample}#${originalTag}]\nPUT 1.=1:\n+${replacement}\n`,
+    })
+    expect(applied.isError).toBe(false)
+    expect(await readFile(sample, 'utf8')).toBe(`${replacement}\nshort\n`)
+  })
+
+  it('applies a PUT on a short line from the original wide-line read', async () => {
+    const { ctx, root, owner } = await seenLineStack()
+    const sample = join(root, 'wide2.txt')
+    const source = `${'a'.repeat(3000)}\nshort\n`
+    await writeFile(sample, source)
+
+    const store = getSessionSnapshotStore(owner.session)
+    const tag = store.record(sample, source, [2])
+
+    // Line 2 was fully displayed by the first read, so it stays anchorable even
+    // though line 1 was column-cut and skipped from seen registration.
+    const result = await call(ctx, owner, {
+      input: `[${sample}#${tag}]\nPUT 2.=2:\n+SHORT\n`,
+    })
+    expect(result.isError).toBe(false)
+    expect(await readFile(sample, 'utf8')).toBe(`${'a'.repeat(3000)}\nSHORT\n`)
+  })
+
+  it('rejects edits on a read whose every displayed line was column-cut', async () => {
+    const { ctx, root, owner } = await seenLineStack()
+    const sample = join(root, 'only-wide.txt')
+    const source = `${'a'.repeat(3000)}\n`
+    await writeFile(sample, source)
+
+    // An all-cut read still records provenance — the [0] non-anchor sentinel —
+    // so the seen set is non-empty but no real anchor line was ever displayed.
+    const store = getSessionSnapshotStore(owner.session)
+    const tag = store.record(sample, source, [0])
+
+    const result = await call(ctx, owner, {
+      input: `[${sample}#${tag}]\nPUT 1.=1:\n+${'a'.repeat(2000)}\n`,
+    })
+    expect(result.isError).toBe(true)
+    expect(modelText(result)).toContain('not fully displayed')
+    expect(await readFile(sample, 'utf8')).toBe(source)
+  })
+
+  it('applies an edit anchored under an empty seen set (write-minted tag provenance)', async () => {
+    const { ctx, root, owner } = await seenLineStack()
+    const sample = join(root, 'fastpath.txt')
+    const source = 'one\ntwo\n'
+    await writeFile(sample, source)
+
+    // A write-minted tag records provenance with NO displayed rows: an empty
+    // seen set means unrestricted (upstream c7648f680f's fast path), so any
+    // anchor applies without a re-read.
+    const store = getSessionSnapshotStore(owner.session)
+    const tag = store.record(sample, source, [])
+
+    const result = await call(ctx, owner, {
+      input: `[${sample}#${tag}]\nPUT 2.=2:\n+TWO\n`,
+    })
+    expect(result.isError).toBe(false)
+    expect(await readFile(sample, 'utf8')).toBe('one\nTWO\n')
+  })
+})
+
 describe('tool-edit (hashline) × diff-preview mismatch origin', () => {
   it('names the tag origin path in the preview mismatch error', async () => {
     const root = await mkdtemp(join(tmpdir(), 'dsh-tool-edit-preview-'))

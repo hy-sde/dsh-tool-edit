@@ -38,6 +38,7 @@ import {
   pathRecoveredFromTagMessage,
   type RevealedLine,
   unseenLinesMessage,
+  wideUnseenLinesMessage,
   writeDriftWarning,
 } from './messages.ts'
 import { MismatchError } from './mismatch.ts'
@@ -58,12 +59,12 @@ import type { ApplyResult, BlockResolution, BlockResolver, BlockSpan, Clipboard,
 const SEEN_LINE_REVEAL_CAP = 40
 
 /**
- * Per-revealed-line character cap. Matches the read/search column cap so a
+ * Per-revealed-line character cap. Matches the read column cap so a
  * revealed anchor line can never dump a minified megabyte-wide bundle line
- * into the tool error, TUI, and model context. Lines longer than the cap
- * are trimmed to `cap` characters plus an `…` marker AND flag the entire
- * reveal as truncated so no line joins `seenLines` — the model must re-read
- * the range to prove it saw the full width.
+ * into the tool error, TUI, and model context. An unseen anchor line longer
+ * than the cap rejects outright with the wide-line remedy (see
+ * {@link wideUnseenLinesMessage}) instead of being revealed: a column-capped
+ * preview cannot prove the model saw the full width.
  */
 const SEEN_LINE_REVEAL_MAX_COLUMNS = 512
 
@@ -796,16 +797,18 @@ export class Patcher {
 	 * The rejection inlines the actual file content at the unseen anchor lines
 	 * (from `matchedSnapshot.text`, which by definition equals the live
 	 * normalized content) so the model can verify what it was about to touch.
-	 * When the reveal covers EVERY unseen anchor line in full width
-	 * (`truncated === false`) those lines also merge into the snapshot's
-	 * seen-line set, so a straight retry with the same `[path#tag]` header
-	 * succeeds without a follow-up range read — the content the model
-	 * received in the error IS proof it has now seen those lines. When the
-	 * anchor range exceeds {@link SEEN_LINE_REVEAL_CAP} lines OR any
-	 * revealed line exceeds {@link SEEN_LINE_REVEAL_MAX_COLUMNS} characters
-	 * (`truncated === true`), NO lines merge: the message keeps the
-	 * range-re-read guidance intact and the model cannot piecewise-reveal
-	 * its way past the guard across multiple retries
+	 * A wide unseen anchor is rejected outright with the full-width re-read
+	 * remedy instead of being revealed: the reveal itself is column-capped, so
+	 * a truncated preview would leave part of the line unseen while the merge
+	 * signal invites a blind retry (oh-my-pi #15649). When the reveal covers
+	 * EVERY unseen anchor line in full width (`truncated === false`) those
+	 * lines also merge into the snapshot's seen-line set, so a straight retry
+	 * with the same `[path#tag]` header succeeds without a follow-up range
+	 * read — the content the model received in the error IS proof it has now
+	 * seen those lines. When the anchor range exceeds
+	 * {@link SEEN_LINE_REVEAL_CAP} lines (`truncated === true`), NO lines
+	 * merge: the message keeps the range-re-read guidance intact and the model
+	 * cannot piecewise-reveal its way past the guard across multiple retries
 	 * (over-cap retry → tail reveal → next retry applies), nor coax the tool
 	 * into dumping a minified megabyte-wide line into the error preview.
 	 */
@@ -828,29 +831,28 @@ export class Patcher {
       }
     }
     const sourceLines = matchedSnapshot.text.split('\n')
+    for (const line of unseen) {
+      // Out-of-range anchors are caught by parse/apply with a better message.
+      if (line < 1 || line > sourceLines.length) continue
+      if ((sourceLines[line - 1] ?? '').length > SEEN_LINE_REVEAL_MAX_COLUMNS) {
+        throw new Error(wideUnseenLinesMessage(section.path, unseen))
+      }
+    }
     const revealed: RevealedLine[] = []
     const revealCount = Math.min(unseen.length, SEEN_LINE_REVEAL_CAP)
-    let columnTruncated = false
     for (let i = 0; i < revealCount; i++) {
       const line = unseen[i]
       if (line === undefined) continue
       // Out-of-range anchors are caught by parse/apply with a better
       // message; skip them here so they never join the revealed set.
       if (line < 1 || line > sourceLines.length) continue
-      const source = sourceLines[line - 1] ?? ''
-      if (source.length > SEEN_LINE_REVEAL_MAX_COLUMNS) {
-        revealed.push({ line, text: `${source.slice(0, SEEN_LINE_REVEAL_MAX_COLUMNS)}…` })
-        columnTruncated = true
-      } else {
-        revealed.push({ line, text: source })
-      }
+      revealed.push({ line, text: sourceLines[line - 1] ?? '' })
     }
-    const truncated = unseen.length > revealed.length || columnTruncated
+    const truncated = unseen.length > revealed.length
     // Only merge when the reveal covered every unseen anchor line in full
     // width. A prefix-truncated reveal would let the model split a blind
     // edit into <=cap-line retries and land it without ever running the
-    // required range re-read; a column-clipped reveal would leave part of
-    // each line unseen while the model receives an "ok to retry" signal.
+    // required range re-read.
     if (!truncated) {
       for (const { line } of revealed) seen.add(line)
     }

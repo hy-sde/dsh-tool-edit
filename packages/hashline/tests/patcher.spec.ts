@@ -406,10 +406,11 @@ describe('Patcher seen-line provenance', () => {
     expect(fs.get(PATH)).toBe(bigContent)
   })
 
-  it('column-clips wide revealed lines, keeps the merge gate closed, and stays anchored across retries', async () => {
+  it('rejects unseen wide anchor lines outright with the full-width re-read remedy', async () => {
     // Minified-bundle-style single wide line at anchor 2. Anchor 3 is a
-    // short line so we can see the width truncation applied only where
-    // needed. The 4KB cap is comfortably over SEEN_LINE_REVEAL_MAX_COLUMNS.
+    // short line so we can see the rejection names every unseen line. A
+    // column-capped reveal cannot prove the model saw the full width, so a
+    // wide unseen anchor never reveals — it rejects with the remedy.
     const wide = 'a'.repeat(4096)
     const wideContent = `l1\n${wide}\nl3\nl4\n`
     const fs = new InMemoryFilesystem([[PATH, wideContent]])
@@ -423,28 +424,23 @@ describe('Patcher seen-line provenance', () => {
     } catch (err) {
       message = (err as Error).message
     }
-    expect(message).toContain('Preview of the actual file content at the first 2 unseen line(s)')
-    // Line 2 is clipped at 512 chars + ellipsis; the full 4KB never leaks
-    // into the error preview.
-    expect(message).toMatch(/2:a{512}…/)
+    expect(message).toContain('not fully displayed')
+    expect(message).toContain('Re-read them in full')
+    expect(message).toMatch(new RegExp(`lines 2-3 of ${PATH}`))
+    // The full 4KB never leaks into the error preview, and nothing merges
+    // into seenLines behind the model's back.
     expect(message).not.toContain('a'.repeat(513))
-    // Short line surfaces verbatim.
-    expect(message).toContain('3:l3')
-    // Guidance routes to a range re-read.
-    expect(message).toMatch(new RegExp(`${PATH}:2-3`))
     expect(fs.get(PATH)).toBe(wideContent)
 
-    // A straight retry STILL rejects: column-truncated reveals must not
-    // merge into seenLines, otherwise the model would land the edit
-    // having only seen the first 512 chars of a >4KB line.
+    // A straight retry STILL rejects with the same remedy: only a re-read
+    // that displays the line in full (which re-mints the tag) can unlock it.
     let retryMessage: string | undefined
     try {
       await patcher.apply(Patch.parse(`[${PATH}#${tag}]\nPUT 2-3:\n+X\n+Y`))
     } catch (err) {
       retryMessage = (err as Error).message
     }
-    expect(retryMessage).toContain('Preview of the actual file content at the first 2 unseen line(s)')
-    expect(retryMessage).toMatch(/2:a{512}…/)
+    expect(retryMessage).toContain('not fully displayed')
     expect(retryMessage).not.toContain('a'.repeat(513))
     expect(fs.get(PATH)).toBe(wideContent)
   })

@@ -562,6 +562,22 @@ export interface UnseenLinesReveal {
 }
 
 /**
+ * An unseen anchor line is wider than the inline reveal cap: a column-capped
+ * preview would leave part of the line unseen while signaling "ok to retry",
+ * so the rejection names the full-width re-read instead of revealing.
+ */
+export function wideUnseenLinesMessage(sectionPath: string, unseenLines: readonly number[]): string {
+  const ranges = formatLineRanges(unseenLines)
+  return (
+    `This edit anchors to lines ${ranges} of ${sectionPath} that were not fully displayed: the read that ` +
+    'minted the tag cut them at its column limit or never displayed them, so their full content is unknown. ' +
+    'Re-read them in full — the whole line, beyond the display column limit — then re-issue the edit with ' +
+    'the tag that read returns. If no read can display the line in full (output-capped), the line exceeds ' +
+    'the read byte budget; change the file through another surface instead of retrying.'
+  )
+}
+
+/**
  * An anchored edit referenced lines the read that minted the cited tag never
  * displayed (a partial range, or a structural summary that collapsed bodies).
  * Editing lines you have not read is the off-by-memory failure that mangles
