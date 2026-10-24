@@ -4,6 +4,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {
   computeFileHash,
+  type BlockSpan,
   formatHashlineHeader,
   HEADTAIL_DRIFT_WARNING,
   InMemoryFilesystem,
@@ -244,8 +245,11 @@ describe('Patcher mandatory snapshot tag policy', () => {
     const snapshots = new InMemorySnapshotStore()
     const patcher = new Patcher({ fs, snapshots })
 
+    // Untagged headers now get the mismatch-style reply naming the file's
+    // CURRENT tag (oh-my-pi 6dec51c4dd) — the same surface a placeholder
+    // tag (#AUTO) hits — instead of a parse-time hard error.
     await expect(patcher.apply(Patch.parse(`[${PATH}]\nPUT >$:\n+c`))).rejects.toThrow(
-      /Missing hashline snapshot tag.*use the write tool/s,
+      new RegExp('the header needs this file\'s current tag, #[0-9A-F]{4}'),
     )
     expect(fs.get(PATH)).toBe('a\nb\n')
   })
@@ -255,8 +259,26 @@ describe('Patcher mandatory snapshot tag policy', () => {
     const snapshots = new InMemorySnapshotStore()
     const patcher = new Patcher({ fs, snapshots })
 
-    await expect(patcher.apply(Patch.parse(`[${PATH}]\nPUT 1-1:\n+X`))).rejects.toThrow(/Missing hashline snapshot tag/)
+    await expect(patcher.apply(Patch.parse(`[${PATH}]\nPUT 1-1:\n+X`))).rejects.toThrow(
+      /the header needs this file's current tag/,
+    )
   })
+
+  for (const header of [`[${PATH}#AUTO]`, `[${PATH}#????]`, `[${PATH}#]`]) {
+    it(`replies with the file's current tag for placeholder header ${header}`, async () => {
+      // Placeholder tags are syntactically valid but name no snapshot: the
+      // edit is rejected with the same reply an untagged header gets, so the
+      // model re-reads and copies a real tag (oh-my-pi 6dec51c4dd).
+      const fs = new InMemoryFilesystem([[PATH, 'a\nb\n']])
+      const snapshots = new InMemorySnapshotStore()
+      const patcher = new Patcher({ fs, snapshots })
+
+      await expect(patcher.apply(Patch.parse(`${header}\nPUT 1-1:\n+X`))).rejects.toThrow(
+        /the header needs this file's current tag, #[0-9A-F]{4}/,
+      )
+      expect(fs.get(PATH)).toBe('a\nb\n')
+    })
+  }
 
   it('rejects a tagged edit whose target file does not exist (create with write instead)', async () => {
     const fs = new InMemoryFilesystem()
@@ -301,6 +323,65 @@ describe('Patcher mandatory snapshot tag policy', () => {
 
 describe('Patcher seen-line provenance', () => {
   const CONTENT = 'l1\nl2\nl3\nl4\nl5\n'
+
+  it('red-proof: a re-minted tag from a mismatch reply lets a blind resend apply', async () => {
+    // The model read the file's OLD content (lines 1-2 displayed), the file
+    // was replaced wholesale, and the model retries under the stale tag. The
+    // mismatch reply names the current tag; before the fix the store kept
+    // the current content with NO seen set, so a resend under the re-minted
+    // tag applied on lines the reply never showed.
+    const staleText = Array.from({ length: 10 }, (_, i) => `a${i + 1}`).join('\n') + '\n'
+    const liveText = Array.from({ length: 10 }, (_, i) => `b${i + 1}`).join('\n') + '\n'
+    const fs = new InMemoryFilesystem([[PATH, liveText]])
+    const snapshots = new InMemorySnapshotStore()
+    const staleTag = snapshots.record(PATH, staleText, [1, 2])
+    const patcher = new Patcher({ fs, snapshots })
+
+    let mismatch: MismatchError | undefined
+    try {
+      await patcher.apply(Patch.parse(`[${PATH}#${staleTag}]\nPUT 2-2:\n+b2-model`))
+      throw new Error('expected MismatchError')
+    } catch (error) {
+      if (!(error instanceof MismatchError)) throw error
+      mismatch = error
+    }
+    expect(mismatch.displayMessage).toContain('*2:b2')
+    const currentTag = mismatch.actualFileHash
+    // The reply's displayed rows (anchor 2 ± 2 → lines 1-4) register as seen
+    // on the current-content snapshot.
+    expect([...(snapshots.byHash(PATH, currentTag)?.seenLines ?? [])]).toEqual([1, 2, 3, 4])
+
+    // Resend under the re-minted tag anchoring on a line the reply never
+    // displayed now REJECTS instead of applying blind.
+    await expect(patcher.apply(Patch.parse(`[${PATH}#${currentTag}]\nPUT 9-9:\n+b9-model`))).rejects.toThrow(
+      /never displayed \(it showed/,
+    )
+    expect(fs.get(PATH)).toBe(liveText)
+  })
+  it('rejects a block edit whose resolved span covers lines the read never displayed', async () => {
+    // A resolved block span (PUT N*/CUT N*) rewrites every line in the
+    // span, not just the anchor: the guard must judge the full span
+    // (oh-my-pi 599de7163f).
+    const fs = new InMemoryFilesystem([[PATH, CONTENT]])
+    const snapshots = new InMemorySnapshotStore()
+    const tag = snapshots.record(PATH, CONTENT, [1, 2])
+    const patcher = new Patcher({
+      fs,
+      snapshots,
+      blockResolver: ({ line }): BlockSpan => ({ start: line, end: line + 1 }),
+    })
+
+    // PUT 2* resolves to span 2..3; line 3 was never displayed.
+    await expect(patcher.apply(Patch.parse(`[${PATH}#${tag}]\nPUT 2*:\n+X`))).rejects.toThrow(
+      /never displayed \(it showed/,
+    )
+    expect(fs.get(PATH)).toBe(CONTENT)
+
+    // With the span fully displayed, the same edit applies.
+    snapshots.record(PATH, CONTENT, [3])
+    const result = await patcher.apply(Patch.parse(`[${PATH}#${tag}]\nPUT 2*:\n+X`))
+    expect(result.sections[0]?.op).toBe('update')
+  })
 
   it('rejects an edit anchored on a line the read never displayed', async () => {
     const fs = new InMemoryFilesystem([[PATH, CONTENT]])
@@ -443,6 +524,49 @@ describe('Patcher seen-line provenance', () => {
     expect(retryMessage).toContain('not fully displayed')
     expect(retryMessage).not.toContain('a'.repeat(513))
     expect(fs.get(PATH)).toBe(wideContent)
+  })
+
+  it('rejects a wide anchor when no retained read shows the content', async () => {
+    // The tag was minted outside this session (write, aged-out store, or an
+    // externally supplied hash) with NO seen set: anchors on lines wider
+    // than the display column cap may have been silently column-cut, so
+    // they reject with the full-content re-read remedy (oh-my-pi 3c49131232).
+    const wideContent = `l1\n${'a'.repeat(4096)}\nl3\n`
+    const fs = new InMemoryFilesystem([[PATH, wideContent]])
+    const snapshots = new InMemorySnapshotStore()
+    const tag = snapshots.record(PATH, wideContent)
+    const patcher = new Patcher({ fs, snapshots })
+
+    let message: string | undefined
+    try {
+      await patcher.apply(Patch.parse(`[${PATH}#${tag}]\nPUT 2-2:\n+X`))
+    } catch (err) {
+      message = (err as Error).message
+    }
+    expect(message).toContain('no retained read shows them in full')
+    expect(message).toContain(`lines 2 of ${PATH}`)
+    expect(message).not.toContain('a'.repeat(513))
+    expect(fs.get(PATH)).toBe(wideContent)
+
+    // Once a read displays line 2 (merging into the same content's seen
+    // set), the edit applies.
+    snapshots.record(PATH, wideContent, [2])
+    const result = await patcher.apply(Patch.parse(`[${PATH}#${tag}]\nPUT 2-2:\n+X`))
+    expect(result.sections[0]?.op).toBe('update')
+  })
+
+  it('applies a short anchor beside an unseen wide line when no seen set is recorded', async () => {
+    // Only the WIDE anchors reject; a short anchor on a different line still
+    // applies without a re-read (upstream resumed_short_anchor_applies).
+    const wideContent = `l1\n${'a'.repeat(4096)}\nl3\n`
+    const fs = new InMemoryFilesystem([[PATH, wideContent]])
+    const snapshots = new InMemorySnapshotStore()
+    const tag = snapshots.record(PATH, wideContent)
+    const patcher = new Patcher({ fs, snapshots })
+
+    const result = await patcher.apply(Patch.parse(`[${PATH}#${tag}]\nPUT 1-1:\n+L1`))
+    expect(result.sections[0]?.op).toBe('update')
+    expect(fs.get(PATH)).toBe(`L1\n${'a'.repeat(4096)}\nl3\n`)
   })
 
   it('skips the check when no seen lines were recorded (absent → allow)', async () => {

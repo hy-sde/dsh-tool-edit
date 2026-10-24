@@ -8,7 +8,7 @@
  * Ported from @oh-my-pi/hashline (https://github.com/can1357/oh-my-pi). MIT License. Copyright (c) 2025 Mario Zechner, Copyright (c) 2025-2026 Can Bölük.
  */
 import { HL_FILE_HASH_EXAMPLES, HL_FILE_HASH_SEP, HL_FILE_PREFIX, HL_FILE_SUFFIX } from './format.ts'
-import { formatAnchoredContext } from './messages.ts'
+import { currentTagAdvice, formatAnchoredContext } from './messages.ts'
 
 const LINE_REF_RE = /^\s*[>+\-*]*\s*(\d+)(?::.*)?\s*$/
 /** Format the required-shape diagnostic shown when a line reference is malformed. */
@@ -103,9 +103,11 @@ export class MismatchError extends Error {
         origin => `Hash ${HL_FILE_HASH_SEP}${details.expectedFileHash} was issued in this session for ${origin}.`,
       )
       return [
-        `Edit rejected${pathText}: hash ${HL_FILE_HASH_SEP}${details.expectedFileHash} is not from this session.`,
+        details.expectedFileHash === ''
+          ? `Edit rejected${pathText}: the header needs this file's current tag, ${HL_FILE_HASH_SEP}${details.actualFileHash}.`
+          : `Edit rejected${pathText}: hash ${HL_FILE_HASH_SEP}${details.expectedFileHash} is not from this session.`,
         ...origins,
-        `The current file hashes to ${HL_FILE_HASH_SEP}${details.actualFileHash}. Re-read the file with \`read\` to copy a current ${HL_FILE_PREFIX}path${HL_FILE_HASH_SEP}tag${HL_FILE_SUFFIX} header — never invent the tag and never reuse one from a prior session.`,
+        currentTagAdvice(details.actualFileHash),
       ]
     }
     return [

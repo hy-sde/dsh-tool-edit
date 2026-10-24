@@ -15,15 +15,19 @@ import {
   type BlockResolution,
   buildCompactDiffPreview,
   type Clipboard,
+  computeFileHash,
   commitClipboard,
   diffLineRuns,
   forkClipboard,
+  formatHeaderOnlyMessage,
   MismatchError as HashlineMismatchError,
   normalizeToLF,
   Patch,
   Patcher,
   type PatchSectionResult,
   type PreparedSection,
+  firstHeaderPath,
+  isNotFound,
   type SnapshotStore,
   startClipboardBatch,
   stripBom,
@@ -260,6 +264,31 @@ function renderSection(result: PatchSectionResult, diagnostics: EditDiagnosticsR
 }
 
 /**
+ * Zero hashline sections but at least one parseable header: the patch
+ * carried a header and no ops. The reply names that file's current tag so
+ * the model re-issues the ops under it (oh-my-pi 6dec51c4dd). Unparseable
+ * input keeps the plain no-sections error.
+ */
+async function headerOnlyError(options: ExecuteHashlineSingleOptions): Promise<Error> {
+  const path = firstHeaderPath(options.input, options.session.cwd)
+  if (path === null) return new Error('No hashline sections found in input.')
+  const snapshots = getSnapshotStore(options.session.sessionKey)
+  const fs = new EditFilesystem({
+    session: options.session,
+    snapshots,
+    ...(options.signal === undefined ? {} : { signal: options.signal }),
+  })
+  let raw: string | undefined
+  try {
+    raw = await fs.readText(path)
+  } catch (error) {
+    if (isNotFound(error)) return new Error(`File not found: ${path}. Use the write tool to create new files.`)
+    throw error
+  }
+  return new Error(formatHeaderOnlyMessage(path, computeFileHash(normalizeToLF(stripBom(raw).text))))
+}
+
+/**
  * Execute one hashline edit: parse the payload, prepare and commit every
  * section, and return the rendered result. Throws on parse/apply/mismatch
  * failure per section before/while committing.
@@ -270,7 +299,7 @@ export async function executeHashlineSingle(options: ExecuteHashlineSingleOption
 }> {
   const patch = Patch.parse(options.input, { cwd: options.session.cwd })
   if (patch.sections.length === 0) {
-    throw new Error('No hashline sections found in input.')
+    throw await headerOnlyError(options)
   }
 
   const snapshots = getSnapshotStore(options.session.sessionKey)

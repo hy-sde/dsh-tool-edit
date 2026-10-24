@@ -13,7 +13,8 @@ import { applyEdits } from './apply.ts'
 import { resolveBlockEdits } from './block.ts'
 import { hasClipboardEdit } from './clipboard.ts'
 import { HL_FILE_HASH_EXAMPLES, HL_FILE_HASH_LENGTH, HL_FILE_HASH_SEP, HL_FILE_PREFIX, HL_FILE_SUFFIX } from './format.ts'
-import { CLIPBOARD_INTERLEAVED_SECTIONS } from './messages.ts'
+import { ABORT_MARKER, BEGIN_PATCH_MARKER, CLIPBOARD_INTERLEAVED_SECTIONS, END_PATCH_MARKER } from './messages.ts'
+import { stripBom } from './normalize.ts'
 import { parsePatch, parsePatchStreaming } from './parser.ts'
 import { Tokenizer } from './tokenizer.ts'
 import type { ApplyResult, BlockResolver, Clipboard, Edit, FileOp, SplitOptions } from './types.ts'
@@ -56,6 +57,51 @@ function stripApplyPatchPathNoise(pathText: string): string {
  * `[***foo.ts#HASH]` shape), then expects `PATH(#HASH)?`.
  * Returns `null` when no clean path can be salvaged.
  */
+/**
+ * A placeholder tag a model invented when it has no tag to copy: `#AUTO`,
+ * `#????`, `#0`, or a bare `#`. One short word (≤16 chars) with no path
+ * characters — anything longer or path-shaped is a malformed tag, not a
+ * placeholder (oh-my-pi 6dec51c4dd).
+ */
+const PLACEHOLDER_TAG_RE = /#[^\s#./\\:\[\]]{0,16}\s*$/
+
+const ENVELOPE_MARKERS = [BEGIN_PATCH_MARKER, END_PATCH_MARKER, ABORT_MARKER]
+
+/**
+ * Unwrap bracketed envelope sentinels (`[*** End Patch]`) from a header
+ * line. Bare sentinel rows are already consumed by the tokenizer, so
+ * unwrapping the bracketed shape routes them down the same path — otherwise
+ * the whole row parses as one header and the edit targets a file called
+ * `Begin Patch] [src/a.ts` (oh-my-pi 6dec51c4dd).
+ */
+function unbracketEnvelopeMarkers(line: string): string {
+  let rest = line
+  for (;;) {
+    if (!rest.startsWith('[')) return rest
+    const inner = rest.slice(1).replace(/^\s+/, '')
+    const marker = ENVELOPE_MARKERS.find(candidate => inner.startsWith(candidate))
+    if (marker === undefined) return rest
+    const tail = inner.slice(marker.length).replace(/^\s+/, '')
+    const tailAfterBracket = tail.startsWith(']') ? tail.slice(1).replace(/^\s+/, '') : tail
+    if (tailAfterBracket.length === 0) return marker
+    rest = tailAfterBracket
+  }
+}
+
+/**
+ * Reject a path whose bracket structure is malformed: a `]` that appears
+ * outside any `[` (depth counter over the whole path text).
+ */
+function headerPathHasOrphanBracket(pathText: string): boolean {
+  let depth = 0
+  for (const char of pathText) {
+    if (char === '[') depth++
+    else if (char === ']' && depth === 0) return true
+    else if (char === ']') depth--
+  }
+  return false
+}
+
 function tryParseRecoveryHeader(line: string, cwd?: string): RawSection | null {
   if (!line.startsWith(HL_FILE_PREFIX) || !line.endsWith(HL_FILE_SUFFIX)) return null
   const body = stripApplyPatchPathNoise(line.slice(HL_FILE_PREFIX.length, line.length - HL_FILE_SUFFIX.length).trim())
@@ -68,20 +114,28 @@ function tryParseRecoveryHeader(line: string, cwd?: string): RawSection | null {
   const trailing = new RegExp(`#([0-9A-Fa-f]{${HL_FILE_HASH_LENGTH}})\\s*$`).exec(body)
   let pathText: string
   let fileHash: string | undefined
+  let placeholder = false
   if (trailing !== null) {
     pathText = body.slice(0, trailing.index)
     fileHash = (trailing[1] ?? '').toUpperCase()
   } else {
-    pathText = body.replace(/\s+$/, '')
+    const placeholderMatch = PLACEHOLDER_TAG_RE.exec(body)
+    if (placeholderMatch !== null) {
+      pathText = body.slice(0, placeholderMatch.index)
+      placeholder = true
+    } else {
+      pathText = body.replace(/\s+$/, '')
+    }
   }
 
   // Only a recovered tag disambiguates a `#` inside the path; untagged, it
   // is a malformed tag (`a.ts#1A2B copied`), not part of a file name.
-  if ((fileHash === undefined && pathText.includes('#'))) return null
+  if (fileHash === undefined && pathText.includes('#')) return null
+  if (headerPathHasOrphanBracket(pathText)) return null
 
   const path = normalizeHashlinePath(pathText, cwd)
   if (path.length === 0) return null
-  return fileHash !== undefined ? { path, fileHash, diff: '' } : { path, diff: '' }
+  return fileHash !== undefined ? { path, fileHash, diff: '' } : { path, diff: '', placeholder }
 }
 
 function normalizeHashlinePath(rawPath: string, cwd?: string): string {
@@ -97,6 +151,13 @@ interface RawSection {
   path: string
   fileHash?: string
   diff: string
+  /**
+   * True when the header carried an invented placeholder tag (`#AUTO`,
+   * `#????`, `#0`, bare `#`) instead of a real tag. Placeholder sections
+   * merge without borrowing another header's tag and get the current-tag
+   * rejection at prepare time (oh-my-pi 6dec51c4dd).
+   */
+  placeholder?: boolean
   /**
 	 * True when this section coalesced same-path sections that were NOT
 	 * adjacent in the authored input (another file's section sat between
@@ -114,7 +175,7 @@ interface RawSection {
  * surface immediately instead of being silently re-classified as payload).
  */
 function parseHashlineHeaderLine(line: string, cwd?: string): RawSection | null {
-  const trimmed = line.trimEnd()
+  const trimmed = unbracketEnvelopeMarkers(line.trimEnd())
   if (!trimmed.startsWith(HL_FILE_PREFIX)) return null
 
   const token = TOKENIZER.tokenize(trimmed)
@@ -125,7 +186,7 @@ function parseHashlineHeaderLine(line: string, cwd?: string): RawSection | null 
     const recovered = tryParseRecoveryHeader(trimmed, cwd)
     if (recovered !== null) return recovered
     throw new Error(
-      `Input header must be ${HL_FILE_PREFIX}PATH${HL_FILE_SUFFIX} or ${HL_FILE_PREFIX}PATH${HL_FILE_HASH_SEP}TAG${HL_FILE_SUFFIX} with a ${HL_FILE_HASH_LENGTH}-hex content-hash tag; got ${JSON.stringify(trimmed)}.`,
+      `Input header must be ${HL_FILE_PREFIX}PATH${HL_FILE_HASH_SEP}TAG${HL_FILE_SUFFIX} with a ${HL_FILE_HASH_LENGTH}-hex content-hash tag; got ${JSON.stringify(trimmed)}.`,
     )
   }
 
@@ -177,7 +238,26 @@ function normalizeFallbackInput(input: string, options: SplitOptions): string {
   return `${HL_FILE_PREFIX}${fallbackPath}${HL_FILE_SUFFIX}\n${input}`
 }
 
-function splitRawSections(input: string, options: SplitOptions = {}): RawSection[] {
+/**
+ * The path of the first line that parses as a hashline section header
+ * (BOM stripped, apply_patch envelope sentinels unwrapped), or null when no
+ * line parses. Used by the header-only error path: the patch carried a
+ * header but zero ops, and the reply names that file's current tag.
+ */
+export function firstHeaderPath(input: string, cwd?: string): string | null {
+  const withoutBom = stripBom(input).text
+  for (const line of withoutBom.split('\n')) {
+    try {
+      const header = parseHashlineHeaderLine(line.trimEnd(), cwd)
+      if (header !== null) return header.path
+    } catch {
+      // Not a header line; keep scanning.
+    }
+  }
+  return null
+}
+
+function splitRawSections(input: string, options: SplitOptions): RawSection[] {
   const stripped = stripLeadingBlankLines(normalizeFallbackInput(input, options))
   const lines = stripped.split(/\r?\n/)
   const firstLine = lines[0] ?? ''
@@ -245,6 +325,8 @@ export class PatchSection {
   readonly path: string
   readonly fileHash: string | undefined
   readonly diff: string
+  /** True when the authored header held an invented placeholder tag instead of a real tag. */
+  readonly placeholder: boolean
   #parsed: { edits: Edit[]; fileOp?: FileOp; warnings: string[] } | undefined
 
   #interleavedMerge: boolean
@@ -253,6 +335,7 @@ export class PatchSection {
     this.path = raw.path
     this.fileHash = raw.fileHash
     this.diff = raw.diff
+    this.placeholder = raw.placeholder === true
     this.#interleavedMerge = raw.interleaved === true
   }
 
@@ -415,6 +498,7 @@ export class PatchSection {
       ...(this.fileHash !== undefined ? { fileHash: this.fileHash } : {}),
       diff: this.diff,
       ...(this.#interleavedMerge ? { interleaved: true } : {}),
+      ...(this.placeholder ? { placeholder: true } : {}),
     })
     next.#parsed = this.#parsed
     return next
@@ -473,7 +557,10 @@ export class Patch {
  * fails. Path order is preserved by first occurrence.
  */
 function mergeSamePathSections(sections: RawSection[]): RawSection[] {
-  const byPath = new Map<string, { fileHash?: string; diffs: string[]; interleaved: boolean }>()
+  const byPath = new Map<
+    string,
+    { fileHash?: string; diffs: string[]; interleaved: boolean; placeholder: boolean }
+  >()
   let previousPath: string | undefined
   for (const section of sections) {
     const existing = byPath.get(section.path)
@@ -488,6 +575,13 @@ function mergeSamePathSections(sections: RawSection[]): RawSection[] {
         )
       }
       if (existing.fileHash === undefined && section.fileHash !== undefined) existing.fileHash = section.fileHash
+      // A placeholder never borrows another header's tag: the merged
+      // section stays untagged, so it gets the current-tag reply
+      // (oh-my-pi 6dec51c4dd).
+      if (section.placeholder === true || existing.placeholder) {
+        existing.placeholder = true
+        delete existing.fileHash
+      }
       // Merging across another file's section moves these ops up to the
       // first occurrence; flag it so clipboard ops can refuse the reorder.
       if (previousPath !== section.path) existing.interleaved = true
@@ -499,6 +593,7 @@ function mergeSamePathSections(sections: RawSection[]): RawSection[] {
       ...(section.fileHash !== undefined ? { fileHash: section.fileHash } : {}),
       diffs: [section.diff],
       interleaved: false,
+      placeholder: section.placeholder === true,
     })
     previousPath = section.path
   }
@@ -507,5 +602,6 @@ function mergeSamePathSections(sections: RawSection[]): RawSection[] {
     ...(entry.fileHash !== undefined ? { fileHash: entry.fileHash } : {}),
     diff: entry.diffs.join('\n'),
     ...(entry.interleaved ? { interleaved: true } : {}),
+    ...(entry.placeholder ? { placeholder: true } : {}),
   }))
 }

@@ -156,7 +156,35 @@ describe('tool-edit (hashline mode)', () => {
     expect(modelText).toContain(`was issued in this session for ${origin}`)
     expect(await readFile(sample, 'utf8')).toBe(before)
   })
+
+  it('replies with the current tag when the input carries only a header (no ops)', async () => {
+    const { ctx, root, owner } = await setup()
+    const sample = join(root, 'only-header.txt')
+    const before = 'line one\nline two\n'
+    await writeFile(sample, before)
+
+    // Header with zero ops under it: the reply names the file's current
+    // tag so the model re-issues the ops under it (oh-my-pi 6dec51c4dd).
+    const result = await call(ctx, owner, { input: `[${sample}]\n` })
+    expect(result.isError).toBe(true)
+    const modelText = result.content.filter(b => b.type === 'text').map(b => b.text ?? '').join('')
+    expect(modelText).toContain('no ops follow the header')
+    expect(modelText).toContain(`#${computeFileHash(before)}`)
+    expect(await readFile(sample, 'utf8')).toBe(before)
+  })
+
+  it('points at the write tool when a header-only input names a missing file', async () => {
+    const { ctx, root, owner } = await setup()
+
+    const result = await call(ctx, owner, { input: `[${join(root, 'ghost.txt')}]\n` })
+    expect(result.isError).toBe(true)
+    const modelText = result.content.filter(b => b.type === 'text').map(b => b.text ?? '').join('')
+    expect(modelText).toContain('File not found')
+    expect(modelText).toContain('Use the write tool to create new files')
+  })
+
 })
+
 
 describe('tool-edit (hashline) × fs-observation-policy', () => {
   /** Like `setup` but with the read-before-edit policy mounted. */

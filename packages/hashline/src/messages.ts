@@ -22,13 +22,7 @@ export const MISMATCH_CONTEXT = 2
  * contribute no rows.
  */
 export function formatAnchoredContext(anchorLines: readonly number[], fileLines: readonly string[]): string[] {
-  const displayLines = new Set<number>()
-  for (const line of anchorLines) {
-    if (line < 1 || line > fileLines.length) continue
-    const lo = Math.max(1, line - MISMATCH_CONTEXT)
-    const hi = Math.min(fileLines.length, line + MISMATCH_CONTEXT)
-    for (let lineNum = lo; lineNum <= hi; lineNum++) displayLines.add(lineNum)
-  }
+  const displayLines = anchoredContextLines(anchorLines, fileLines)
   const anchorSet = new Set(anchorLines)
   const rows: string[] = []
   let previous = -1
@@ -39,6 +33,22 @@ export function formatAnchoredContext(anchorLines: readonly number[], fileLines:
     rows.push(`${marker}${formatNumberedLine(lineNum, fileLines[lineNum - 1] ?? '')}`)
   }
   return rows
+}
+/**
+ * Line numbers a mismatch reply prints around `anchorLines`
+ * (±{@link MISMATCH_CONTEXT}, clamped to the file). Rows the reply renders
+ * count as proof the model saw them, so they join the recorded seen-line set
+ * of the current content (oh-my-pi ca6f4500af + 555d8ec4ed).
+ */
+export function anchoredContextLines(anchorLines: readonly number[], fileLines: readonly string[]): number[] {
+  const displayLines = new Set<number>()
+  for (const line of anchorLines) {
+    if (line < 1 || line > fileLines.length) continue
+    const lo = Math.max(1, line - MISMATCH_CONTEXT)
+    const hi = Math.min(fileLines.length, line + MISMATCH_CONTEXT)
+    for (let lineNum = lo; lineNum <= hi; lineNum++) displayLines.add(lineNum)
+  }
+  return [...displayLines].sort((a, b) => a - b)
 }
 /** Concrete range operation rejected because its absolute end precedes its start. */
 export type AbsoluteRangeOp = 'replace' | 'cut'
@@ -499,11 +509,22 @@ export function writeDriftWarning(path: string): string {
 }
 
 /**
- * Section omitted the mandatory snapshot tag. Shared by the apply
- * ({@link Patcher.prepare}) and preview/diff paths so both stay in lockstep.
+ * Advice appended to rejections that name the file's current hash: the model
+ * should re-read and copy a real [path#tag] header instead of guessing.
  */
-export function missingSnapshotTagMessage(sectionPath: string): string {
-  return `Missing hashline snapshot tag for ${sectionPath}; use \`${HL_FILE_PREFIX}${sectionPath}${HL_FILE_HASH_SEP}tag${HL_FILE_SUFFIX}\` from your latest read/search output. To create a new file, use the write tool.`
+export function currentTagAdvice(actualFileHash: string): string {
+  return (
+    `The current file hashes to ${HL_FILE_HASH_SEP}${actualFileHash}. Re-read the file with \`read\` to copy a current ` +
+    `${HL_FILE_PREFIX}path${HL_FILE_HASH_SEP}tag${HL_FILE_SUFFIX} header — never invent the tag and never reuse one from a prior session.`
+  )
+}
+
+/**
+ * A patch carried a header but no ops under it. Shared by the apply
+ * (zero-sections) and preview/diff paths so both stay in lockstep.
+ */
+export function formatHeaderOnlyMessage(path: string, actualFileHash: string): string {
+  return `Edit rejected for ${path}: no ops follow the header; put them under this file's current tag, ${HL_FILE_HASH_SEP}${actualFileHash}.\n${currentTagAdvice(actualFileHash)}`
 }
 
 /**
@@ -561,6 +582,22 @@ export interface UnseenLinesReveal {
   truncated: boolean
 }
 
+/**
+ * The edit anchors to lines wider than the display column cap while no
+ * retained read shows their full content (oh-my-pi 3c49131232): the read
+ * that minted the tag may have silently column-cut them, so their full text
+ * is unverified.
+ */
+export function unverifiedWideLinesMessage(sectionPath: string, wideLines: readonly number[]): string {
+  const ranges = formatLineRanges(wideLines)
+  const selector = ranges.replace(/, /g, ',')
+  return (
+    `This edit anchors to lines ${ranges} of ${sectionPath}, which exceed the display column cap, and no retained ` +
+    'read shows them in full. ' +
+    `Read \`${sectionPath}:${selector}\` with the read tool's maxLineLength input raised above its default ` +
+    '(e.g. maxLineLength: 1000000) for their full content, then re-issue the edit.'
+  )
+}
 /**
  * An unseen anchor line is wider than the inline reveal cap: a column-capped
  * preview would leave part of the line unseen while signaling "ok to retry",

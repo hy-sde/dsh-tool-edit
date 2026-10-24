@@ -54,14 +54,22 @@ describe('hashline section headers', () => {
     expect(() => Patch.parse('[Update File: src/a.ts#1A2B:812]\nPUT 1-1:\n+after')).toThrow(/Input header must be/)
   })
 
-  it('rejects malformed snapshot tags', () => {
-    expect(() => Patch.parse('[src/a.ts#1A2]\nPUT 1-1:\n+after')).toThrow(/Input header must be/)
-    expect(() => Patch.parse('[src/a.ts#1A2G]\nPUT 1-1:\n+after')).toThrow(/Input header must be/)
-    expect(() => Patch.parse('[src/a.ts#1A2B5]\nPUT 1-1:\n+after')).toThrow(/Input header must be/)
+  it('parses malformed snapshot tags as placeholders', () => {
+    // Short non-4-hex tags parse as placeholders (oh-my-pi 6dec51c4dd):
+    // untagged section, rejected at apply time with the current-tag reply.
+    for (const tag of ['1A2', '1A2G', '1A2B5']) {
+      const section = Patch.parse(`[src/a.ts#${tag}]\nPUT 1-1:\n+after`)
+      expect(section.sections[0]?.path).toBe('src/a.ts')
+      expect(section.sections[0]?.fileHash).toBeUndefined()
+      expect(section.sections[0]?.placeholder).toBe(true)
+    }
   })
 
-  it('rejects malformed snapshot tags even with apply_patch noise', () => {
-    expect(() => Patch.parse('[Update File: src/a.ts#1A2G]\nPUT 1-1:\n+after')).toThrow(/Input header must be/)
+  it('parses malformed snapshot tags as placeholders even with apply_patch noise', () => {
+    const section = Patch.parse('[Update File: src/a.ts#1A2G]\nPUT 1-1:\n+after')
+    expect(section.sections[0]?.path).toBe('src/a.ts')
+    expect(section.sections[0]?.fileHash).toBeUndefined()
+    expect(section.sections[0]?.placeholder).toBe(true)
   })
 
   it('reports bracket syntax with a 4-hex example when the header is missing', () => {

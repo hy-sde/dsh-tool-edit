@@ -33,8 +33,9 @@ import { isNotFound } from './fs.ts'
 import { shiftedImages } from './line-diff.ts'
 import type { Patch, PatchSection } from './input.ts'
 import {
+  anchoredContextLines,
   HEADTAIL_DRIFT_WARNING,
-  missingSnapshotTagMessage,
+  unverifiedWideLinesMessage,
   pathRecoveredFromTagMessage,
   type RevealedLine,
   unseenLinesMessage,
@@ -176,10 +177,6 @@ function hasAnchorScopedEdit(edits: readonly Edit[]): boolean {
   })
 }
 
-function assertSectionHashPresent(sectionPath: string, fileHash: string | undefined): void {
-  if (fileHash !== undefined) return
-  throw new Error(missingSnapshotTagMessage(sectionPath))
-}
 
 function recoveryToApplyResult(result: RecoveryResult): ApplyResult {
   return {
@@ -359,6 +356,16 @@ function bodyTargets(body: readonly string[], currentLines: readonly string[], f
  * anchors no retained version displayed, ends too short or repeated to
  * identify a line, and pure inserts/cuts (no payload to evidence against).
  */
+function guardedLines(section: PatchSection, blocks: readonly BlockResolution[]): number[] {
+  const lines = new Set(section.collectAnchorLines())
+  for (const block of blocks) {
+    if (block.op === 'replace' || block.op === 'cut') {
+      for (let line = block.start; line <= block.end; line++) lines.add(line)
+    }
+  }
+  return [...lines].sort((a, b) => a - b)
+}
+
 function rescueShiftedAnchors(
   section: PatchSection,
   snapshots: SnapshotStore,
@@ -533,7 +540,6 @@ export class Patcher {
     const parsed = await this.#parseWithRangeDiagnostics(section)
     const parseWarnings = [...parsed.warnings]
     const fileOp = parsed.fileOp
-    assertSectionHashPresent(section.path, section.fileHash)
 
     let target = section
     let canonicalPath = this.fs.canonicalPath(target.path)
@@ -565,6 +571,12 @@ export class Patcher {
 
     if (!read.exists) {
       throw new Error(`File not found: ${target.path}. Use the write tool to create new files.`)
+    }
+    // A section with no current tag (untagged header or a placeholder like
+    // #AUTO) is rejected AFTER the read so a missing file reports File-not-found
+    // first and the reply names the file's CURRENT tag (oh-my-pi 6dec51c4dd).
+    if (target.fileHash === undefined) {
+      throw this.#mismatchError(target, canonicalPath, normalizeToLF(stripBom(read.rawContent).text), '', false)
     }
 
     if (fileOp?.kind === 'move' && this.fs.canonicalPath(fileOp.dest) === canonicalPath) {
@@ -773,8 +785,8 @@ export class Patcher {
     }
   }
 
-  #recordFullSnapshot(canonicalPath: string, normalized: string): string {
-    return this.snapshots.record(canonicalPath, normalized)
+  #recordFullSnapshot(canonicalPath: string, normalized: string, seenLines?: readonly number[]): string {
+    return this.snapshots.record(canonicalPath, normalized, seenLines)
   }
 
   /**
@@ -814,13 +826,21 @@ export class Patcher {
 	 */
   #assertSeenLines(
     section: PatchSection,
+    blocks: readonly BlockResolution[],
     expected: string,
     matchedSnapshot: Snapshot | null,
     rescue?: { canonicalPath: string; currentText: string },
   ): void {
     const seen = matchedSnapshot?.seenLines
-    if (!seen || seen.size === 0) return
-    let unseen = section.collectAnchorLines().filter(line => !seen.has(line))
+    if (!seen || seen.size === 0) {
+      // No retained read shows this content (externally minted tag, aged-out
+      // store, or a write-recorded snapshot). Anchors on lines wider than the
+      // display column cap may have been silently column-cut, so reject them
+      // instead of applying blind (oh-my-pi 3c49131232).
+      this.#rejectUnverifiedWideAnchors(section, blocks, rescue?.currentText)
+      return
+    }
+    let unseen = guardedLines(section, blocks).filter(line => !seen.has(line))
     if (unseen.length === 0) return
     if (rescue !== undefined && matchedSnapshot !== null) {
       const rescued = rescueShiftedAnchors(section, this.snapshots, rescue.canonicalPath, rescue.currentText, unseen)
@@ -858,6 +878,30 @@ export class Patcher {
     }
     throw new Error(unseenLinesMessage(section.path, unseen, expected, { lines: revealed, truncated }))
   }
+
+  /**
+   * Reject anchors whose CURRENT line exceeds the display column cap when no
+   * retained read shows this content: the read that minted the tag may have
+   * silently column-cut those lines, so applying on them would edit content
+   * the model never saw (oh-my-pi 3c49131232). Short anchors still apply —
+   * a narrow line cannot hide unseen content. Only the no-drift path passes
+   * `currentText` (the live file); without it the check cannot judge width
+   * and allows the edit, matching upstream's drift-path behavior.
+   */
+  #rejectUnverifiedWideAnchors(
+    section: PatchSection,
+    blocks: readonly BlockResolution[],
+    currentText?: string,
+  ): void {
+    if (currentText === undefined) return
+    const currentLines = currentText.split('\n')
+    const wide = guardedLines(section, blocks).filter(
+      line => line >= 1 && line <= currentLines.length && (currentLines[line - 1] ?? '').length > SEEN_LINE_REVEAL_MAX_COLUMNS,
+    )
+    if (wide.length > 0) {
+      throw new Error(unverifiedWideLinesMessage(section.path, wide))
+    }
+  }
   /**
    * Paths this session's store recorded under `expected`, excluding the file
    * being written — the likely origins of a foreign tag.
@@ -880,13 +924,24 @@ export class Patcher {
     expected: string,
     hashRecognized: boolean,
   ): MismatchError {
-    const actualFileHash = this.#recordFullSnapshot(canonicalPath, normalized)
+    const fileLines = normalized.split('\n')
+    const anchorLines = section.collectAnchorLines()
+    // Rows this reply prints count as proof of what the model saw: when the
+    // current content is already restricted to a seen set (or not yet
+    // recorded), register the reply's anchored-context rows against it so a
+    // resend under the re-minted tag cannot apply on lines the reply never
+    // showed (oh-my-pi ca6f4500af + 555d8ec4ed). Content recorded without a
+    // seen set stays unrestricted — a full read must not become partial.
+    const existing = this.snapshots.byContent(canonicalPath, normalized)
+    const restricted = existing === null || (existing.seenLines?.size ?? 0) > 0
+    const displayed = restricted ? anchoredContextLines(anchorLines, fileLines) : []
+    const actualFileHash = this.#recordFullSnapshot(canonicalPath, normalized, displayed.length > 0 ? displayed : undefined)
     return new MismatchError({
       path: section.path,
       expectedFileHash: expected,
       actualFileHash,
-      fileLines: normalized.split('\n'),
-      anchorLines: section.collectAnchorLines(),
+      fileLines,
+      anchorLines,
       hashRecognized,
       tagOriginPaths: this.#tagOriginPaths(expected, canonicalPath),
     })
@@ -952,7 +1007,10 @@ export class Patcher {
       // Reject any anchor the read never displayed: editing lines the model
       // has not seen is the off-by-memory mistake that mangles files.
       if (expected !== undefined && this.#enforceSeenLines) {
-        this.#assertSeenLines(section, expected, matchedSnapshot, { canonicalPath, currentText: normalized })
+        this.#assertSeenLines(section, blockResolutions, expected, matchedSnapshot, {
+          canonicalPath,
+          currentText: normalized,
+        })
       }
       const result = applyEdits(normalized, resolved, { clipboard, path: canonicalPath })
       return withResolveWarnings(blockResolutions.length > 0 ? { ...result, blockResolutions } : result)

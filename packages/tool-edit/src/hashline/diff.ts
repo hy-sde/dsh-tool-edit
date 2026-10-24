@@ -17,7 +17,6 @@ import {
   hasBlockEdit,
   Patch as HashlinePatch,
   MismatchError,
-  missingSnapshotTagMessage,
   normalizeToLF,
   type Patch,
   type PatchSection,
@@ -116,7 +115,9 @@ function applyPreviewEdits(args: {
   const { section, absolutePath, normalized, snapshots, options } = args
   const expected = section.fileHash
   if (!options.skipHashValidation && expected === undefined) {
-    throw new Error(missingSnapshotTagMessage(section.path))
+    // Untagged/placeholder headers get the mismatch-style reply naming the
+    // file's current tag, mirroring Patcher.prepare (oh-my-pi 6dec51c4dd).
+    throw createMismatchError(section, absolutePath, normalized, snapshots, '')
   }
   // The 4-hex tag is content-derived: when the live text hashes to it, trust
   // the match and preview directly (mirrors Patcher's apply-time behavior).
