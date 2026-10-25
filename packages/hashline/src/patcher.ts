@@ -348,13 +348,9 @@ function bodyTargets(body: readonly string[], currentLines: readonly string[], f
 }
 
 /**
- * Anchors the guard would reject that a shift-aware reading accepts: every
- * unseen anchor of a replacement op images a displayed line of a retained
- * version (same content, older number), and the payload carries the current
- * content of both ends of the unseen span (see {@link bodyTargets}).
- * Stale-numbered anchors fail the payload check and stay rejected, as do
- * anchors no retained version displayed, ends too short or repeated to
- * identify a line, and pure inserts/cuts (no payload to evidence against).
+ * Lines the seen-line guard checks: the section's authored anchors plus every
+ * line a resolved `PUT N*:`/`CUT N*` replaces or removes. Block inserts and
+ * pastes after a block leave its lines intact, so they keep only their anchor.
  */
 function guardedLines(section: PatchSection, blocks: readonly BlockResolution[]): number[] {
   const lines = new Set(section.collectAnchorLines())
@@ -366,6 +362,15 @@ function guardedLines(section: PatchSection, blocks: readonly BlockResolution[])
   return [...lines].sort((a, b) => a - b)
 }
 
+/**
+ * Anchors the guard would reject that a shift-aware reading accepts: every
+ * unseen anchor of a replacement op images a displayed line of a retained
+ * version (same content, older number), and the payload carries the current
+ * content of both ends of the unseen span (see {@link bodyTargets}).
+ * Stale-numbered anchors fail the payload check and stay rejected, as do
+ * anchors no retained version displayed, ends too short or repeated to
+ * identify a line, and pure inserts/cuts (no payload to evidence against).
+ */
 function rescueShiftedAnchors(
   section: PatchSection,
   snapshots: SnapshotStore,
