@@ -308,4 +308,33 @@ describe('hashline apply — duplicate boundary payloads', () => {
     const diff = 'PUT >$:\n+bbb\n+ccc\n+NEW'
     expect(applyPatch(text, diff)).toBe('aaa\nbbb\nccc\nbbb\nccc\nNEW')
   })
+
+  describe('hashline — bracketed apply_patch envelope', () => {
+    it('parses hashline ops wrapped in a bracketed apply_patch envelope', () => {
+    // oh-my-pi 6dec51c4dd: `[*** Begin Patch]` on the first line must be
+    // skipped like the bare form (strip_leading_blanks unbrackets), not
+    // hard-fail the first-line header check.
+      const section = Patch.parseSingle('[*** Begin Patch]\n[src/a.ts#1A2B]\nPUT 1-1:\n+after')
+
+      expect(section.path).toBe('src/a.ts')
+      expect(section.fileHash).toBe('1A2B')
+      expect(section.applyTo('before').text).toBe('after')
+    })
+
+    it('stops parsing at a bracketed `*** End Patch` mid-patch', () => {
+      const patch = Patch.parse('[src/a.ts#1A2B]\nPUT 1-1:\n+after\n[*** End Patch]\n[src/b.ts#1A2B]\nPUT 1-1:\n+else')
+
+      expect(patch.sections).toHaveLength(1)
+      expect(patch.sections[0]?.path).toBe('src/a.ts')
+      expect(patch.sections[0]?.diff).toBe('PUT 1-1:\n+after')
+    })
+
+    it('skips a bracketed `*** Begin Patch` mid-patch instead of riding in the body', () => {
+      const patch = Patch.parse('[src/a.ts#1A2B]\nPUT 1-1:\n+after\n[*** Begin Patch]\n[src/b.ts#1A2B]\nPUT 1-1:\n+else')
+
+      expect(patch.sections).toHaveLength(2)
+      expect(patch.sections[0]?.diff).toBe('PUT 1-1:\n+after')
+      expect(patch.sections[1]?.diff).toBe('PUT 1-1:\n+else')
+    })
+  })
 })

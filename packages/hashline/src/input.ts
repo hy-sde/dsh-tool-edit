@@ -204,7 +204,12 @@ function stripLeadingBlankLines(input: string): string {
   const lines = stripped.split('\n')
   while (lines.length > 0) {
     const head = (lines[0] ?? '').replace(/\r$/, '')
-    if (head.trim().length === 0 || TOKENIZER.tokenize(head).kind === 'envelope-begin') {
+    // Unwrap bracketed envelope sentinels before classifying so a wrapped
+    // `apply_patch` envelope (`[*** Begin Patch]` first line) is skipped like
+    // the bare form instead of hard-failing the first-line check
+    // (oh-my-pi 6dec51c4dd unbrackets inside strip_leading_blanks).
+    const clean = unbracketEnvelopeMarkers(head)
+    if (clean.trim().length === 0 || TOKENIZER.tokenize(clean).kind === 'envelope-begin') {
       lines.shift()
       continue
     }
@@ -292,7 +297,11 @@ function splitRawSections(input: string, options: SplitOptions): RawSection[] {
 
   for (const line of lines) {
     const trimmed = line.trimEnd()
-    const token = TOKENIZER.tokenize(line)
+    // Classify the unbracketed form so a bracketed sentinel row mid-patch
+    // breaks/continues like the bare one instead of riding in the diff body
+    // (oh-my-pi 6dec51c4dd tokenizes `unbracket_envelope_markers(clean)` in
+    // split_raw_sections).
+    const token = TOKENIZER.tokenize(unbracketEnvelopeMarkers(trimmed))
     if (token.kind === 'envelope-end' || token.kind === 'abort') break
     if (token.kind === 'envelope-begin') continue
 
