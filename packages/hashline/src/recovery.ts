@@ -89,6 +89,15 @@ function buildLineMap(previousText: string, currentText: string): Map<number, nu
   return map
 }
 
+/**
+ * Map each line of `previousText` to the line it occupies now in
+ * `currentText` (oh-my-pi 2995614a54): the stale-tag rejection uses it to
+ * name where anchored lines moved after an out-of-band write.
+ */
+export function currentLineMap(previousText: string, currentText: string): Map<number, number> {
+  return buildLineMap(previousText, currentText)
+}
+
 /** Values appearing two or more times in `lines`, for O(1) duplicate checks. */
 function collectDuplicatedValues(lines: readonly string[]): Set<string> {
   const seen = new Set<string>()

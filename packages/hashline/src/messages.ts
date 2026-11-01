@@ -608,9 +608,10 @@ export function wideUnseenLinesMessage(sectionPath: string, unseenLines: readonl
   return (
     `This edit anchors to lines ${ranges} of ${sectionPath} that were not fully displayed: the read that ` +
     'minted the tag cut them at its column limit or never displayed them, so their full content is unknown. ' +
-    'Re-read them in full — the whole line, beyond the display column limit — then re-issue the edit with ' +
-    'the tag that read returns. If no read can display the line in full (output-capped), the line exceeds ' +
-    'the read byte budget; change the file through another surface instead of retrying.'
+    "Re-read them with the read tool's maxLineLength input raised above its default (e.g. maxLineLength: " +
+    '1000000), then re-issue the edit with the tag that read returns. If that re-read still cannot display ' +
+    'the line (output-capped), the line exceeds the read byte budget; change the file through another ' +
+    'surface instead of retrying.'
   )
 }
 
@@ -656,6 +657,34 @@ export function unseenLinesMessage(
 		'Verify the content matches what you intend to touch, then re-issue the edit with the same ' +
 		`${HL_FILE_PREFIX}path${HL_FILE_HASH_SEP}tag${HL_FILE_SUFFIX} header — a straight retry now succeeds without a re-read. ` +
 		'If the content does NOT match, fix your line numbers.'
+  )
+}
+
+/**
+ * An anchored edit under a stale tag references lines the tagged snapshot
+ * never displayed in full (oh-my-pi ff0d7262f8). Instead of revealing the
+ * stale content, the rejection maps each unseen line to its current line
+ * number and hands back the live tag, so the re-read and the re-issued edit
+ * both address the file as it exists now.
+ */
+export function staleUnseenLinesMessage(
+  sectionPath: string,
+  unseenLines: readonly number[],
+  tag: string,
+  liveLines: readonly number[],
+  liveTag: string,
+): string {
+  const ranges = formatLineRanges(unseenLines)
+  const liveRanges = formatLineRanges(liveLines)
+  const selector = liveRanges.replace(/, /g, ',')
+  return (
+    `This edit anchors to lines ${ranges} of ${sectionPath} that ` +
+    `${HL_FILE_PREFIX}${sectionPath}${HL_FILE_HASH_SEP}${tag}${HL_FILE_SUFFIX} never displayed in full. ` +
+    `The file has changed since that tag: those lines are now lines ${liveRanges}, under ` +
+    `${HL_FILE_PREFIX}${sectionPath}${HL_FILE_HASH_SEP}${liveTag}${HL_FILE_SUFFIX}. ` +
+    `Read \`${sectionPath}:${selector}\` with the read tool's maxLineLength input raised above its default ` +
+    '(e.g. maxLineLength: 1000000) for their full content, then re-issue the edit under ' +
+    `${HL_FILE_PREFIX}${sectionPath}${HL_FILE_HASH_SEP}${liveTag}${HL_FILE_SUFFIX} with current line numbers.`
   )
 }
 

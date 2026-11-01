@@ -348,8 +348,10 @@ describe('Patcher seen-line provenance', () => {
     expect(mismatch.displayMessage).toContain('*2:b2')
     const currentTag = mismatch.actualFileHash
     // The reply's displayed rows (anchor 2 ± 2 → lines 1-4) register as seen
-    // on the current-content snapshot.
-    expect([...(snapshots.byHash(PATH, currentTag)?.seenLines ?? [])]).toEqual([1, 2, 3, 4])
+    // on the current-content snapshot, plus line 0 (which no read display
+    // includes) — the line-0 marker keeps the reply-recorded snapshot
+    // restricted even though rows exist.
+    expect([...(snapshots.byHash(PATH, currentTag)?.seenLines ?? [])]).toEqual([1, 2, 3, 4, 0])
 
     // Resend under the re-minted tag anchoring on a line the reply never
     // displayed now REJECTS instead of applying blind.
@@ -506,7 +508,7 @@ describe('Patcher seen-line provenance', () => {
       message = (err as Error).message
     }
     expect(message).toContain('not fully displayed')
-    expect(message).toContain('Re-read them in full')
+    expect(message).toContain('maxLineLength')
     expect(message).toMatch(new RegExp(`lines 2-3 of ${PATH}`))
     // The full 4KB never leaks into the error preview, and nothing merges
     // into seenLines behind the model's back.

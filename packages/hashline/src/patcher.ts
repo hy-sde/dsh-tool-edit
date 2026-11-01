@@ -45,6 +45,7 @@ import {
 import { MismatchError } from './mismatch.ts'
 import { detectLineEnding, type LineEnding, normalizeToLF, restoreLineEndings, stripBom } from './normalize.ts'
 import { InvalidAbsoluteRangeError } from './parser.ts'
+import { withErrorKind } from './error-kind.ts'
 import { Recovery, type RecoveryResult } from './recovery.ts'
 import type { Snapshot, SnapshotStore } from './snapshots.ts'
 import type { ApplyResult, BlockResolution, BlockResolver, BlockSpan, Clipboard, Edit, FileOp } from './types.ts'
@@ -860,7 +861,7 @@ export class Patcher {
       // Out-of-range anchors are caught by parse/apply with a better message.
       if (line < 1 || line > sourceLines.length) continue
       if ((sourceLines[line - 1] ?? '').length > SEEN_LINE_REVEAL_MAX_COLUMNS) {
-        throw new Error(wideUnseenLinesMessage(section.path, unseen))
+        throw withErrorKind(new Error(wideUnseenLinesMessage(section.path, unseen)), 'unseen_lines')
       }
     }
     const revealed: RevealedLine[] = []
@@ -881,7 +882,10 @@ export class Patcher {
     if (!truncated) {
       for (const { line } of revealed) seen.add(line)
     }
-    throw new Error(unseenLinesMessage(section.path, unseen, expected, { lines: revealed, truncated }))
+    throw withErrorKind(
+      new Error(unseenLinesMessage(section.path, unseen, expected, { lines: revealed, truncated })),
+      'unseen_lines',
+    )
   }
 
   /**
@@ -904,8 +908,23 @@ export class Patcher {
       line => line >= 1 && line <= currentLines.length && (currentLines[line - 1] ?? '').length > SEEN_LINE_REVEAL_MAX_COLUMNS,
     )
     if (wide.length > 0) {
-      throw new Error(unverifiedWideLinesMessage(section.path, wide))
+      throw withErrorKind(new Error(unverifiedWideLinesMessage(section.path, wide)), 'unseen_lines')
     }
+  }
+
+  /**
+   * Record `text` as a reply the model has now seen (oh-my-pi f11dac11be):
+   * content with no recorded snapshot is treated as restricted (the tool
+   * cannot vouch for a full read); a snapshot without a seen set — a full
+   * read — stays unrestricted. Restricted content gains the reply's
+   * displayed lines plus line 0, which no ranged read can display, so a
+   * reply that displayed nothing keeps the snapshot restrictive.
+   */
+  #recordReplySnapshot(canonicalPath: string, text: string, displayed: readonly number[] = []): string {
+    const existing = this.snapshots.byContent(canonicalPath, text)
+    const restricted = existing === null || (existing.seenLines?.size ?? 0) > 0
+    if (!restricted) return this.#recordFullSnapshot(canonicalPath, text)
+    return this.#recordFullSnapshot(canonicalPath, text, [...displayed, 0])
   }
   /**
    * Paths this session's store recorded under `expected`, excluding the file
@@ -940,7 +959,7 @@ export class Patcher {
     const existing = this.snapshots.byContent(canonicalPath, normalized)
     const restricted = existing === null || (existing.seenLines?.size ?? 0) > 0
     const displayed = restricted ? anchoredContextLines(anchorLines, fileLines) : []
-    const actualFileHash = this.#recordFullSnapshot(canonicalPath, normalized, displayed.length > 0 ? displayed : undefined)
+    const actualFileHash = this.#recordReplySnapshot(canonicalPath, normalized, displayed)
     return new MismatchError({
       path: section.path,
       expectedFileHash: expected,
