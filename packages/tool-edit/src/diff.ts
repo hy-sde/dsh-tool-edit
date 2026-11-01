@@ -8,6 +8,7 @@
  * unified-hunk emitter, so the package stays dependency-light.
  * Ported from @oh-my-pi/pi-coding-agent (https://github.com/can1357/oh-my-pi). MIT License. Copyright (c) 2025 Mario Zechner, Copyright (c) 2025-2026 Can Bölük.
  */
+import { withErrorKind } from '@hy-sde-org/dsh-hashline'
 import { findMatch } from './replace.ts'
 import { DEFAULT_FUZZY_THRESHOLD } from './replace.ts'
 import type { BlockContextSource } from './block-context.ts'
@@ -780,7 +781,12 @@ interface ParseHunkResult {
   linesConsumed: number
 }
 
-function parseOneHunk(lines: string[], lineNumber: number, allowMissingContext: boolean): ParseHunkResult {
+function parseOneHunk(
+  lines: string[],
+  lineNumber: number,
+  allowMissingContext: boolean,
+  recoverLineNumbers: boolean,
+): ParseHunkResult {
   if (lines.length === 0) {
     throw new ParseError('Diff does not contain any lines', lineNumber)
   }
@@ -818,7 +824,7 @@ function parseOneHunk(lines: string[], lineNumber: number, allowMissingContext: 
       oldStartLine = Number(lineHintMatch[1])
       newStartLine = oldStartLine
       if (oldStartLine < 1) {
-        throw new ParseError('Line hint must be >= 1', lineNumber)
+        throw withErrorKind(new ParseError('Line hint must be >= 1', lineNumber), 'out_of_range')
       }
     } else if (TOP_OF_FILE_REGEX.test(normalizedContextValue)) {
       oldStartLine = 1
@@ -942,7 +948,9 @@ function parseOneHunk(lines: string[], lineNumber: number, allowMissingContext: 
     throw new ParseError('Hunk does not contain any lines', lineNumber + startIndex)
   }
 
-  stripLineNumberPrefixes(hunk)
+  if (recoverLineNumbers) {
+    stripLineNumberPrefixes(hunk)
+  }
   return { hunk, linesConsumed: parsedLines + startIndex }
 }
 
@@ -1030,7 +1038,21 @@ function extractMarkerPath(line: string): string | undefined {
   return undefined
 }
 
+/** Parse JSON patch hunks, recovering numbered read output when present. */
 export function parseDiffHunks(diff: string): DiffHunk[] {
+  return parseHunks(diff, true)
+}
+
+/**
+ * Parse Codex `apply_patch` hunks. Numeric prefixes stay literal content:
+ * envelope hunk lines are authored content, not numbered read output, so a
+ * patch may legitimately edit lines like `12 old text`.
+ */
+export function parseApplyPatchHunks(diff: string): DiffHunk[] {
+  return parseHunks(diff, false)
+}
+
+function parseHunks(diff: string, recoverLineNumbers: boolean): DiffHunk[] {
   const multiFileCount = countMultiFileMarkers(diff)
   if (multiFileCount > 1) {
     throw new ApplyPatchError(
@@ -1063,7 +1085,7 @@ export function parseDiffHunks(diff: string): DiffHunk[] {
       break
     }
 
-    const { hunk, linesConsumed } = parseOneHunk(lines.slice(i), i + 1, true)
+    const { hunk, linesConsumed } = parseOneHunk(lines.slice(i), i + 1, true, recoverLineNumbers)
     hunks.push(hunk)
     i += linesConsumed
   }

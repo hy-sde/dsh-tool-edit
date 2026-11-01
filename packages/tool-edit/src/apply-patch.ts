@@ -13,6 +13,7 @@
  */
 import { ApplyPatchError, ParseError } from './diff.ts'
 import { applyPatch, type ApplyPatchOptions, type ApplyPatchResult, type PatchInput } from './patch.ts'
+import { withErrorKind } from '@hy-sde-org/dsh-hashline'
 
 const BEGIN_PATCH_MARKER = '*** Begin Patch'
 const END_PATCH_MARKER = '*** End Patch'
@@ -160,7 +161,9 @@ function parseApplyPatchWithOptions(patchText: string, options: ParseApplyPatchO
       }
 
       if (diffLines.length === 0) {
-        if (streaming) {
+        // A move-only `*** Update File` section carries no hunks; accept it
+        // outside streaming too and let the update path short-circuit.
+        if (streaming || movePath !== undefined) {
           hunks.push({ path, op: 'update', diff: '', firstMatch: true, ...(movePath === undefined ? {} : { rename: movePath }) })
           continue
         }
@@ -204,7 +207,7 @@ export async function applyCodexPatch(patchText: string, options: ApplyPatchOpti
   const hunks = parseApplyPatch(patchText)
 
   if (hunks.length === 0) {
-    throw new ApplyPatchError('No files were modified.')
+    throw withErrorKind(new ApplyPatchError('No files were modified.'), 'no_change')
   }
 
   const results: ApplyPatchResult[] = []

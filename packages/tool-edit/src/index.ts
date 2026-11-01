@@ -26,7 +26,7 @@ import {
 } from './constants.ts'
 import { fileDiffsFromMeta, type FileDiff } from './details.ts'
 import { ApplyPatchError } from './diff.ts'
-import { containsRecognizableHashlineOperations } from '@hy-sde-org/dsh-hashline'
+import { containsRecognizableHashlineOperations, errorKindOf, withErrorKind } from '@hy-sde-org/dsh-hashline'
 import { executeHashlineSingle } from './hashline/execute.ts'
 import { executePatchEntry, type PatchEditEntry } from './patch.ts'
 import { expandApplyPatchToEntries } from './apply-patch.ts'
@@ -225,6 +225,11 @@ async function runApplyPatch(ctx: Context, resolved: ResolvedConfig, args: Recor
   const exec = toolExecFor(ctx)
   const session = buildSession(ctx, resolved, exec)
   const entries = expandApplyPatchToEntries({ input })
+  if (entries.length === 0) {
+    // An envelope with no hunks modifies nothing; upstream surfaces this as an
+    // error (apply_codex_patch's 'No files were modified.'), not silent success.
+    throw withErrorKind(new ApplyPatchError('No files were modified.'), 'no_change')
+  }
   const lines: string[] = []
   for (const entry of entries) {
     const outcome = await executePatchEntry({
@@ -411,7 +416,13 @@ function registerEditTool(ctx: Context, config: ResolvedConfig, provider: EditLs
           throw error
         }
       } catch (error) {
-        if (error instanceof ApplyPatchError) throw new Error(errorMessage(error))
+        if (error instanceof ApplyPatchError) {
+          const message = errorMessage(error)
+          // Re-wrap without losing the machine-readable kind: WeakMap tags live
+          // on the ApplyPatchError, and `new Error(...)` would strip them.
+          const kind = errorKindOf(error)
+          throw kind === undefined ? new Error(message) : withErrorKind(new Error(message), kind)
+        }
         const message = errorMessage(error)
         // A no-op edit (old === new, or the patch resolves to the current
         // content) is a SUCCESS: the intended state already holds. Report it

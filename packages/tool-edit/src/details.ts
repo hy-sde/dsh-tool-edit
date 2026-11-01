@@ -5,6 +5,8 @@
  * `@deepseek-ai/dsh-tool-fs`.
  * Ported from @oh-my-pi/pi-coding-agent (https://github.com/can1357/oh-my-pi). MIT License. Copyright (c) 2025 Mario Zechner, Copyright (c) 2025-2026 Can Bölük.
  */
+import type { EditErrorKind } from '@hy-sde-org/dsh-hashline'
+
 
 /** One side of a file diff used by tool presentResult cards. */
 export interface FileDiff {
@@ -25,6 +27,14 @@ export interface EditToolPerFileDetails {
   diagnostics?: { summary: string; messages: readonly unknown[] }
   oldText?: string
   newText?: string
+  /**
+   * Machine-readable rejection kind (oh-my-pi 3c2b968909), one of the
+   * {@link EditErrorKind} values. Mirror surface note: the edit tool reports
+   * failures as thrown errors (message + errorKind via the WeakMap tag), so
+   * this field is reserved for future per-file failure details and is not
+   * currently populated; the kind travels on the thrown Error instead.
+   */
+  errorKind?: EditErrorKind
 }
 
 import { structuredPatchHunks } from './diff.ts'

@@ -58,6 +58,9 @@ Mode "apply_patch" — Codex-style envelope:
   <context line>
 *** Delete File: <path>
 *** End Patch
+Omit hunks only for a content-preserving move. Old/context lines must match
+complete file lines, allowing only whitespace and Unicode punctuation
+normalization, not substrings or similar text.
 File references relative, never absolute. New-file lines MUST start \`+\`.
 
 <parameters>

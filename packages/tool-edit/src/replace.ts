@@ -7,6 +7,7 @@
  */
 import type { EditSession } from './session.ts'
 import type { WritethroughCallback } from './lsp/writethrough.ts'
+import { withErrorKind } from '@hy-sde-org/dsh-hashline'
 import { generateDiffString, replaceText } from './diff.ts'
 import {
   countLeadingWhitespace,
@@ -1118,7 +1119,7 @@ export async function executeReplace(options: ExecuteReplaceOptions): Promise<Re
   }
 
   if (normalizedContent === result.content) {
-    throw new Error(`Edits to ${path} resulted in no changes being made.`)
+    throw withErrorKind(new Error(`Edits to ${path} resulted in no changes being made.`), 'no_change')
   }
 
   const finalContent = bom + restoreLineEndings(result.content, originalEnding)

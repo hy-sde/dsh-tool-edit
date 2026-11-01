@@ -19,7 +19,9 @@ import {
   normalizeCreateContent,
   parseDiffHunks,
   resolveToCwd,
+  parseApplyPatchHunks,
 } from './diff.ts'
+import { withErrorKind } from '@hy-sde-org/dsh-hashline'
 import {
   adjustIndentation,
   convertLeadingTabsToSpaces,
@@ -28,6 +30,7 @@ import {
   getLeadingWhitespace,
   normalizeForFuzzy,
   normalizeToLF,
+  normalizeUnicode,
   restoreLineEndings,
   stripBom,
 } from './normalize.ts'
@@ -49,13 +52,14 @@ export interface PatchInput {
   rename?: string
   diff?: string
   /**
-   * Codex `apply_patch` placement for context-free hunks: when the hunk's
-   * lines occur more than once, bind to the first exact or
-   * whitespace/unicode-normalized match at or after the previous hunk
-   * instead of rejecting the ambiguity. Looser matches and matches that
-   * would wrap behind the previous hunk still require a unique occurrence.
-   * Set by the apply_patch envelope only; JSON `patch` entries omit it and
-   * keep the uniqueness check.
+   * Codex first-match binding: envelope hunks locate their old lines with a
+   * hint-aware sequence search (exact, trimEnd, trim, unicode) that accepts
+   * complete lines only, starting at the previous hunk's end (or the line
+   * hint) and preferring the end of the file for `@@` EOF hunks. Repeated
+   * and partial-line matches are rejected instead of bound, so envelope
+   * edits stay whole-line like the upstream Codex tool. Set by the
+   * apply_patch envelope only; JSON `patch` entries omit it and keep the
+   * fuzzy uniqueness-checked matcher.
    */
   firstMatch?: boolean
 }
@@ -913,7 +917,6 @@ function applyCharacterMatch(
   hunk: DiffHunk,
   fuzzyThreshold: number,
   allowFuzzy: boolean,
-  firstMatch: boolean,
 ): { content: string; warnings: string[] } | undefined {
   const oldText = hunk.oldLines.join('\n')
   const newText = hunk.newLines.join('\n')
@@ -940,25 +943,24 @@ function applyCharacterMatch(
 
   // Check for multiple exact occurrences
   if (matchOutcome.occurrences && matchOutcome.occurrences > 1) {
-    // With first-match binding, repeated text is placed line-based instead:
-    // the first exact or normalized match at or after the previous hunk.
-    if (firstMatch) return undefined
     const previews = matchOutcome.occurrencePreviews?.join('\n\n') ?? ''
     const moreMsg = matchOutcome.occurrences > 5 ? ` (showing first 5 of ${matchOutcome.occurrences})` : ''
-    throw new ApplyPatchError(
-      `Found ${matchOutcome.occurrences} occurrences in ${path}${moreMsg}:\n\n${previews}\n\n` +
-        'Add more context lines to disambiguate.',
+    throw withErrorKind(
+      new ApplyPatchError(
+        `Found ${matchOutcome.occurrences} occurrences in ${path}${moreMsg}:\n\n${previews}\n\n` +
+          'Add more context lines to disambiguate.',
+      ),
+      'no_match',
     )
   }
 
   if (matchOutcome.fuzzyMatches && matchOutcome.fuzzyMatches > 1) {
-    // Repeats that only match after whitespace/unicode normalization surface
-    // here as fuzzy candidates; they bind to the first unless a single
-    // candidate dominates the scoring.
-    if (firstMatch && !matchOutcome.dominantFuzzy) return undefined
-    throw new ApplyPatchError(
-      `Found ${matchOutcome.fuzzyMatches} high-confidence matches in ${path}. ` +
-        'The text must be unique. Please provide more context to make it unique.',
+    throw withErrorKind(
+      new ApplyPatchError(
+        `Found ${matchOutcome.fuzzyMatches} high-confidence matches in ${path}. ` +
+          'The text must be unique. Please provide more context to make it unique.',
+      ),
+      'no_match',
     )
   }
 
@@ -966,12 +968,15 @@ function applyCharacterMatch(
     const closest = matchOutcome.closest
     if (closest) {
       const similarityPercent = Math.round(closest.confidence * 100)
-      throw new ApplyPatchError(
-        `Could not find a close enough match in ${path}. ` +
-          `Closest match (${similarityPercent}% similar) at line ${closest.startLine}.`,
+      throw withErrorKind(
+        new ApplyPatchError(
+          `Could not find a close enough match in ${path}. ` +
+            `Closest match (${similarityPercent}% similar) at line ${closest.startLine}.`,
+        ),
+        'no_match',
       )
     }
-    throw new ApplyPatchError(`Failed to find expected lines in ${path}:\n${oldText}`)
+    throw withErrorKind(new ApplyPatchError(`Failed to find expected lines in ${path}:\n${oldText}`), 'no_match')
   }
 
   // Adjust indentation to match what was actually found
@@ -1002,8 +1007,11 @@ async function readExistingPatchFile(fileSystem: FileSystem, absolutePath: strin
   try {
     return await fileSystem.read(absolutePath)
   } catch (error) {
-    if (error instanceof Error && error.message.startsWith('File not found:')) {
-      throw new ApplyPatchError(`File not found: ${path}`)
+    if (
+      error instanceof Error &&
+      (error.message.startsWith('File not found:') || error.message.endsWith(': not found'))
+    ) {
+      throw withErrorKind(new ApplyPatchError(`File not found: ${path}`), 'file_not_found')
     }
     // node error codes are surfaced only in adapter land; treat ENOENT-style
     // adapter errors generically by message prefix when available.
@@ -1036,10 +1044,13 @@ function assertPartialMatchPreservesDiscardedText(
       if (part.length === 0) continue
       newLinesNorm ??= newLines.map(normalizeForFuzzy).join('\n')
       if (!newLinesNorm.includes(part)) {
-        throw new ApplyPatchError(
-          `Refusing partial-line match in ${path} at line ${matchStartIndex + j + 1}: ` +
-            `the file line also contains ${JSON.stringify(part)}, which the replacement would silently drop. ` +
-            'Provide the complete line in the hunk.',
+        throw withErrorKind(
+          new ApplyPatchError(
+            `Refusing partial-line match in ${path} at line ${matchStartIndex + j + 1}: ` +
+              `the file line also contains ${JSON.stringify(part)}, which the replacement would silently drop. ` +
+              'Provide the complete line in the hunk.',
+          ),
+          'no_match',
         )
       }
     }
@@ -1054,13 +1065,6 @@ function computeReplacements(
   path: string,
   hunks: DiffHunk[],
   allowFuzzy: boolean,
-  /**
-   * Codex `apply_patch` placement for context-free hunks: bind repeated lines
-   * to the first exact or whitespace/unicode-normalized match at or after the
-   * previous hunk. The JSON `patch` mode passes `false` and keeps the
-   * uniqueness check.
-   */
-  firstMatch: boolean,
 ): { replacements: Replacement[]; warnings: string[] } {
   const replacements: Replacement[] = []
   const warnings: string[] = []
@@ -1069,13 +1073,19 @@ function computeReplacements(
   for (const hunk of hunks) {
     let contextIndex: number | undefined
     if (hunk.oldStartLine !== undefined && hunk.oldStartLine < 1) {
-      throw new ApplyPatchError(
-        `Line hint ${hunk.oldStartLine} is out of range for ${path} (line numbers start at 1)`,
+      throw withErrorKind(
+        new ApplyPatchError(
+          `Line hint ${hunk.oldStartLine} is out of range for ${path} (line numbers start at 1)`,
+        ),
+        'out_of_range',
       )
     }
     if (hunk.newStartLine !== undefined && hunk.newStartLine < 1) {
-      throw new ApplyPatchError(
-        `Line hint ${hunk.newStartLine} is out of range for ${path} (line numbers start at 1)`,
+      throw withErrorKind(
+        new ApplyPatchError(
+          `Line hint ${hunk.newStartLine} is out of range for ${path} (line numbers start at 1)`,
+        ),
+        'out_of_range',
       )
     }
     const lineHint = hunk.oldStartLine
@@ -1110,15 +1120,18 @@ function computeReplacements(
           const previews = formatSequenceMatchPreviews(originalLines, result.matchIndices, result.matchCount)
           const strategyHint = result.strategy ? ` Matching strategy: ${result.strategy}.` : ''
           const previewText = previews ? `\n\n${previews}` : ''
-          throw new ApplyPatchError(
-            `Found ${result.matchCount} matches for context '${displayContext}' in ${path}.${strategyHint}` +
-              `${previewText}\n\nAdd more surrounding context or additional @@ anchors to make it unique.`,
+          throw withErrorKind(
+            new ApplyPatchError(
+              `Found ${result.matchCount} matches for context '${displayContext}' in ${path}.${strategyHint}` +
+                `${previewText}\n\nAdd more surrounding context or additional @@ anchors to make it unique.`,
+            ),
+            'no_match',
           )
         } else {
           const displayContext = hunk.changeContext.includes('\n')
             ? hunk.changeContext.split('\n').join(' > ')
             : hunk.changeContext
-          throw new ApplyPatchError(`Failed to find context '${displayContext}' in ${path}`)
+          throw withErrorKind(new ApplyPatchError(`Failed to find context '${displayContext}' in ${path}`), 'no_match')
         }
       } else {
         // If oldLines[0] matches the final context, start search at idx (not idx+1)
@@ -1149,15 +1162,21 @@ function computeReplacements(
           // Reject if line hint is out of range for insertion
           // Valid insertion points are 1 to (file length + 1) for 1-indexed hints
           if (lineHintForInsertion < 1) {
-            throw new ApplyPatchError(
-              `Line hint ${lineHintForInsertion} is out of range for insertion in ${path} ` +
-                '(line numbers start at 1)',
+            throw withErrorKind(
+              new ApplyPatchError(
+                `Line hint ${lineHintForInsertion} is out of range for insertion in ${path} ` +
+                  '(line numbers start at 1)',
+              ),
+              'out_of_range',
             )
           }
           if (lineHintForInsertion > originalLines.length + 1) {
-            throw new ApplyPatchError(
-              `Line hint ${lineHintForInsertion} is out of range for insertion in ${path} ` +
-                `(file has ${originalLines.length} lines)`,
+            throw withErrorKind(
+              new ApplyPatchError(
+                `Line hint ${lineHintForInsertion} is out of range for insertion in ${path} ` +
+                  `(file has ${originalLines.length} lines)`,
+              ),
+              'out_of_range',
             )
           }
           insertionIdx = Math.max(0, lineHintForInsertion - 1)
@@ -1175,7 +1194,6 @@ function computeReplacements(
 
     // Try to find the old lines in the file
     let pattern = [...hunk.oldLines]
-    let fromVariant = false
     const matchHint = getHunkHintIndex(hunk, lineIndex)
     let searchResult = findSequenceWithHint(
       originalLines,
@@ -1218,7 +1236,6 @@ function computeReplacements(
           pattern = variant.oldLines
           newSlice = variant.newLines
           searchResult = variantResult
-          fromVariant = true
           break
         }
       }
@@ -1276,9 +1293,12 @@ function computeReplacements(
         )
         const strategyHint = searchResult.strategy ? ` Matching strategy: ${searchResult.strategy}.` : ''
         const previewText = previews ? `\n\n${previews}` : ''
-        throw new ApplyPatchError(
-          `Found ${searchResult.matchCount} matches for the text in ${path}.${strategyHint}` +
-            `${previewText}\n\nAdd more surrounding context or additional @@ anchors to make it unique.`,
+        throw withErrorKind(
+          new ApplyPatchError(
+            `Found ${searchResult.matchCount} matches for the text in ${path}.${strategyHint}` +
+              `${previewText}\n\nAdd more surrounding context or additional @@ anchors to make it unique.`,
+          ),
+          'no_match',
         )
       }
       const closest = findClosestSequenceMatch(originalLines, pattern, {
@@ -1288,12 +1308,18 @@ function computeReplacements(
       if (closest.index !== undefined && closest.confidence > 0) {
         const similarityPercent = Math.round(closest.confidence * 100)
         const preview = formatSequenceMatchPreview(originalLines, closest.index)
-        throw new ApplyPatchError(
-          `Failed to find expected lines in ${path}:\n${hunk.oldLines.join('\n')}\n\n` +
-            `Closest match (${similarityPercent}% similar) near line ${closest.index + 1}:\n${preview}`,
+        throw withErrorKind(
+          new ApplyPatchError(
+            `Failed to find expected lines in ${path}:\n${hunk.oldLines.join('\n')}\n\n` +
+              `Closest match (${similarityPercent}% similar) near line ${closest.index + 1}:\n${preview}`,
+          ),
+          'no_match',
         )
       }
-      throw new ApplyPatchError(`Failed to find expected lines in ${path}:\n${hunk.oldLines.join('\n')}`)
+      throw withErrorKind(
+        new ApplyPatchError(`Failed to find expected lines in ${path}:\n${hunk.oldLines.join('\n')}`),
+        'no_match',
+      )
     }
 
     const found = searchResult.index
@@ -1315,27 +1341,13 @@ function computeReplacements(
       )
     }
 
-    // apply_patch takes the first match at or after the previous hunk, like
-    // Codex's seek_sequence: only its exact and whitespace/unicode-normalized
-    // passes on the hunk's own lines. Looser strategies, narrowed variants and
-    // matches that wrapped behind the cursor still require a unique match.
-    const codexFirstMatch =
-      firstMatch &&
-      !fromVariant &&
-      found >= lineIndex &&
-      (searchResult.strategy === 'exact' ||
-        searchResult.strategy === 'trim-trailing' ||
-        searchResult.strategy === 'trim' ||
-        searchResult.strategy === 'unicode')
-
     // For simple diffs (no context marker, no context lines), reject ambiguous
     // replacements. Skipped when isEndOfFile is set (EOF marker provides
-    // disambiguation) or under Codex first-match binding. When the inexact
-    // passes found several candidates the pattern is reported with all of them
-    // — the fuzzy pass returns its best-scoring candidate rather than the
-    // first, so a forward-only search would miss earlier occurrences.
+    // disambiguation). When the inexact passes found several candidates the
+    // pattern is reported with all of them — the fuzzy pass returns its
+    // best-scoring candidate rather than the first, so a forward-only search
+    // would miss earlier occurrences.
     if (
-      !codexFirstMatch &&
       hunk.changeContext === undefined &&
       !hunk.hasContextLines &&
       !hunk.isEndOfFile &&
@@ -1348,18 +1360,24 @@ function computeReplacements(
           searchResult.matchCount,
         )
         const previewText = previews ? `:\n\n${previews}` : ''
-        throw new ApplyPatchError(
-          `Found ${searchResult.matchCount} occurrences in ${path}${previewText}\n\n` +
-            'Add more context lines to disambiguate.',
+        throw withErrorKind(
+          new ApplyPatchError(
+            `Found ${searchResult.matchCount} occurrences in ${path}${previewText}\n\n` +
+              'Add more context lines to disambiguate.',
+          ),
+          'no_match',
         )
       }
       const secondMatch = seekSequence(originalLines, pattern, found + 1, false, { allowFuzzy })
       if (secondMatch.index !== undefined) {
         const preview1 = formatSequenceMatchPreview(originalLines, found)
         const preview2 = formatSequenceMatchPreview(originalLines, secondMatch.index)
-        throw new ApplyPatchError(
-          `Found 2 occurrences in ${path}:\n\n${preview1}\n\n${preview2}\n\n` +
-            'Add more context lines to disambiguate.',
+        throw withErrorKind(
+          new ApplyPatchError(
+            `Found 2 occurrences in ${path}:\n\n${preview1}\n\n${preview2}\n\n` +
+              'Add more context lines to disambiguate.',
+          ),
+          'no_match',
         )
       }
     }
@@ -1420,6 +1438,112 @@ function computeReplacements(
 }
 
 /**
+ * Locate `pattern` in `lines` with the Codex envelope's matcher: complete
+ * lines only, compared through the exact → trimEnd → trim → unicode ladder,
+ * starting at `start` and preferring the end of the file for `@@` EOF hunks
+ * (oh-my-pi ceeb647e12 + cb927599ef + 217ef9399a).
+ */
+function seekApplyPatchSequence(
+  lines: string[],
+  pattern: string[],
+  start: number,
+  eof: boolean,
+): number | undefined {
+  const end = lines.length - pattern.length
+  if (end < 0 || start > end) return undefined
+  const comparisons: Array<(actual: string, expected: string) => boolean> = [
+    (actual, expected) => actual === expected,
+    (actual, expected) => actual.trimEnd() === expected.trimEnd(),
+    (actual, expected) => actual.trim() === expected.trim(),
+    (actual, expected) => normalizeUnicode(actual) === normalizeUnicode(expected),
+  ]
+  const preferred = eof ? end : start
+  for (const from of [preferred, start]) {
+    for (const compare of comparisons) {
+      for (let index = from; index <= end; index++) {
+        let matched = true
+        for (let offset = 0; offset < pattern.length; offset++) {
+          const actual = lines[index + offset]
+          const expected = pattern[offset]
+          if (actual === undefined || expected === undefined || !compare(actual, expected)) {
+            matched = false
+            break
+          }
+        }
+        if (matched) return index
+      }
+    }
+    if (preferred === start) break
+  }
+  return undefined
+}
+
+/**
+ * Codex first-match placement for envelope hunks: a hint-aware, monotonic
+ * sequence search over complete lines. Repeated and partial-line matches
+ * are rejected — the envelope edits whole lines, like upstream Codex.
+ */
+function computeApplyPatchReplacements(lines: string[], path: string, hunks: DiffHunk[]): Replacement[] {
+  const replacements: Replacement[] = []
+  let cursor = 0
+  for (const hunk of hunks) {
+    const hint = hunk.oldStartLine ?? hunk.newStartLine
+    if (hint !== undefined && (hint < 1 || hint > lines.length + 1)) {
+      throw withErrorKind(new ApplyPatchError(`Line hint ${hint} is out of range for ${path}`), 'out_of_range')
+    }
+    if (hint !== undefined) {
+      cursor = Math.max(cursor, hint - 1)
+    }
+    if (hunk.changeContext !== undefined) {
+      for (const anchor of hunk.changeContext.split('\n')) {
+        const found = seekApplyPatchSequence(lines, [anchor], cursor, false)
+        if (found === undefined) {
+          throw withErrorKind(new ApplyPatchError(`Failed to find context '${anchor}' in ${path}`), 'no_match')
+        }
+        cursor = found + 1
+      }
+    }
+    let found: number
+    let oldLines = hunk.oldLines
+    let newLines = hunk.newLines
+    if (oldLines.length === 0) {
+      // Pure insertion: after the resolved context/hint position, or at the
+      // end of the file when the hunk carries no anchor at all.
+      found = hunk.changeContext !== undefined || hint !== undefined ? cursor : lines.length
+    } else {
+      let seeked = seekApplyPatchSequence(lines, oldLines, cursor, hunk.isEndOfFile)
+      if (seeked === undefined && oldLines[oldLines.length - 1] === '') {
+        // Retry without the trailing empty line, mirroring the JSON path and
+        // upstream Codex (file_update.rs): the envelope strips the file's
+        // trailing newline element, so a trailing empty context line can
+        // never match verbatim. Strip the matching new-side empty line too,
+        // or the replacement would re-add the line that could not match.
+        oldLines = oldLines.slice(0, -1)
+        if (newLines.length > 0 && newLines[newLines.length - 1] === '') {
+          newLines = newLines.slice(0, -1)
+        }
+        seeked = seekApplyPatchSequence(lines, oldLines, cursor, hunk.isEndOfFile)
+      }
+      if (seeked === undefined) {
+        throw withErrorKind(
+          new ApplyPatchError(`Failed to find expected lines in ${path}:\n${hunk.oldLines.join('\n')}`),
+          'no_match',
+        )
+      }
+      found = seeked
+    }
+    const matched = lines.slice(found, found + oldLines.length)
+    replacements.push({
+      startIndex: found,
+      oldLen: oldLines.length,
+      newLines: adjustLinesIndentation(oldLines, matched, newLines),
+    })
+    cursor = found + oldLines.length
+  }
+  return replacements
+}
+
+/**
  * Apply replacements to lines, returning the modified content.
  */
 function applyReplacements(lines: string[], replacements: Replacement[]): string[] {
@@ -1448,9 +1572,11 @@ function applyHunksToContent(
 ): { content: string; warnings: string[] } {
   const hadFinalNewline = originalContent.endsWith('\n')
 
-  // Detect simple replace pattern: single hunk, no @@ context, no context lines, has old lines to match
-  // Only use character-based matching when there are no hints to disambiguate
-  if (hunks.length === 1) {
+  // Detect simple replace pattern: single hunk, no @@ context, no context
+  // lines, has old lines to match. Only use character-based matching when
+  // there are no hints to disambiguate; Codex envelopes always take the
+  // complete-line ladder instead.
+  if (!firstMatch && hunks.length === 1) {
     const hunk = hunks[0] as DiffHunk
     if (
       hunk.changeContext === undefined &&
@@ -1459,9 +1585,7 @@ function applyHunksToContent(
       hunk.oldStartLine === undefined && // No line hint to use for positioning
       !hunk.isEndOfFile // No EOF targeting (prefer end of file)
     ) {
-      // Repeated text yields no character match under first-match binding;
-      // placement then falls through to the line pass like Codex.
-      const matched = applyCharacterMatch(originalContent, path, hunk, fuzzyThreshold, allowFuzzy, firstMatch)
+      const matched = applyCharacterMatch(originalContent, path, hunk, fuzzyThreshold, allowFuzzy)
       if (matched !== undefined) {
         const { content, warnings } = matched
         return { content: applyTrailingNewlinePolicy(content, hadFinalNewline), warnings }
@@ -1470,6 +1594,12 @@ function applyHunksToContent(
   }
 
   let originalLines = originalContent.split('\n')
+
+  // Codex envelopes treat empty content as zero lines, so a pure insertion
+  // lands at index 0 instead of matching the single empty split element.
+  if (firstMatch && originalContent === '') {
+    originalLines = []
+  }
 
   // Track if we have a trailing empty element from the final newline
   // Only strip ONE trailing empty (the newline marker), preserve actual blank lines
@@ -1480,8 +1610,16 @@ function applyHunksToContent(
     strippedTrailingEmpty = true
   }
 
-  const { replacements, warnings } = computeReplacements(originalLines, path, hunks, allowFuzzy, firstMatch)
+  const { replacements, warnings } = firstMatch
+    ? { replacements: computeApplyPatchReplacements(originalLines, path, hunks), warnings: [] }
+    : computeReplacements(originalLines, path, hunks, allowFuzzy)
   const newLines = applyReplacements(originalLines, replacements)
+
+  // A Codex envelope that deletes every line yields exactly '' — return
+  // before the trailing-newline restore re-adds the stripped marker.
+  if (firstMatch && newLines.length === 0) {
+    return { content: '', warnings }
+  }
 
   // Restore the trailing empty element if we stripped it
   if (strippedTrailingEmpty) {
@@ -1590,11 +1728,37 @@ async function applyNormalizedPatch(input: PatchInput, options: ApplyPatchOption
   }
 
   // Handle UPDATE operation
-  if (!input.diff) {
+  if (input.diff === undefined) {
     throw new ApplyPatchError('Update operation requires diff (hunks)')
   }
 
   const originalContent = await readExistingPatchFile(fs, absolutePath, input.path)
+
+  // Content-preserving move (`*** Update File` + `*** Move to` with no
+  // hunks): persist the source text unchanged. normalizeToLF + restore is
+  // not byte-lossless for mixed line endings, and upstream stages the raw
+  // read bytes when the text is untouched.
+  if (input.firstMatch === true && input.rename !== undefined && input.diff.trim() === '') {
+    const destPath = resolvePath(input.rename)
+    if (!dryRun) {
+      const parentDir = path.dirname(destPath)
+      if (parentDir && parentDir !== '.') {
+        await fs.mkdir(parentDir)
+      }
+      await fs.write(destPath, originalContent)
+      await fs.delete(absolutePath)
+    }
+    return {
+      change: {
+        type: 'update',
+        path: absolutePath,
+        newPath: destPath,
+        oldContent: originalContent,
+        newContent: originalContent,
+      },
+    }
+  }
+
   const { bom: bomFromText, text: strippedContent } = stripBom(originalContent)
   let bom = bomFromText
   if (!bom && fs.readBinary) {
@@ -1605,7 +1769,7 @@ async function applyNormalizedPatch(input: PatchInput, options: ApplyPatchOption
   }
   const lineEnding = detectLineEnding(strippedContent)
   const normalizedContent = normalizeToLF(strippedContent)
-  const hunks = parseDiffHunks(input.diff)
+  const hunks = input.firstMatch === true ? parseApplyPatchHunks(input.diff) : parseDiffHunks(input.diff)
 
   if (hunks.length === 0) {
     throw new ApplyPatchError('Diff contains no hunks')
