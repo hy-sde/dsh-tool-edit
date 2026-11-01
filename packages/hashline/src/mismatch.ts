@@ -8,6 +8,7 @@
  * Ported from @oh-my-pi/hashline (https://github.com/can1357/oh-my-pi). MIT License. Copyright (c) 2025 Mario Zechner, Copyright (c) 2025-2026 Can Bölük.
  */
 import { HL_FILE_HASH_EXAMPLES, HL_FILE_HASH_SEP, HL_FILE_PREFIX, HL_FILE_SUFFIX } from './format.ts'
+import { withErrorKind, type EditErrorKind } from './error-kind.ts'
 import { currentTagAdvice, formatAnchoredContext } from './messages.ts'
 
 const LINE_REF_RE = /^\s*[>+\-*]*\s*(\d+)(?::.*)?\s*$/
@@ -67,10 +68,21 @@ export class MismatchError extends Error {
   readonly anchorLines: readonly number[]
   readonly hashRecognized: boolean
   readonly tagOriginPaths: readonly string[]
+  /**
+   * Machine-readable rejection kind (oh-my-pi 3c2b968909): recognized tag →
+   * `stale_tag`, absent tag → `missing_tag`, tag minted elsewhere in this
+   * session → `unknown_tag`, tag from another file → `other_file_tag`.
+   */
+  readonly kind: EditErrorKind
 
   constructor(details: MismatchDetails) {
     super(MismatchError.formatMessage(details))
     this.name = 'MismatchError'
+    this.kind = MismatchError.rejectionKind(details)
+    // Carry the kind on the thrown error itself (WeakMap tag) so hashline
+    // mismatch rejections surface machine-readably in result.error, like the
+    // tagged apply_patch kinds.
+    withErrorKind(this, this.kind)
     this.path = details.path
     this.expectedFileHash = details.expectedFileHash
     this.actualFileHash = details.actualFileHash
@@ -120,6 +132,13 @@ export class MismatchError extends Error {
     return MismatchError.formatMessage(details)
   }
 
+  private static rejectionKind(details: MismatchDetails): EditErrorKind {
+    if (details.hashRecognized ?? true) return 'stale_tag'
+    if (details.expectedFileHash === '') return 'missing_tag'
+    if ((details.tagOriginPaths ?? []).length === 0) return 'unknown_tag'
+    return 'other_file_tag'
+  }
+
   static formatMessage(details: MismatchDetails): string {
     const lines = MismatchError.rejectionHeader(details)
     const context = formatAnchoredContext(details.anchorLines ?? [], details.fileLines)
@@ -132,6 +151,9 @@ export class MismatchError extends Error {
 /** Throws when the line reference is out of bounds for the given file. */
 export function validateLineRef(ref: { line: number }, fileLines: string[]): void {
   if (ref.line < 1 || ref.line > fileLines.length) {
-    throw new Error(`Line ${ref.line} does not exist (file has ${fileLines.length} lines)`)
+    throw withErrorKind(
+      new Error(`Line ${ref.line} does not exist (file has ${fileLines.length} lines)`),
+      'out_of_range',
+    )
   }
 }

@@ -11,6 +11,7 @@
  */
 
 import { resolveClipboardEdits } from './clipboard.ts'
+import { withErrorKind } from './error-kind.ts'
 import {
   afterInsertLandingShiftWarning,
   ambiguousBoundaryEchoMessage,
@@ -82,7 +83,10 @@ function validateLineBounds(edits: readonly AppliedEdit[], fileLines: readonly s
   for (const edit of edits) {
     for (const anchor of getEditAnchors(edit)) {
       if (anchor.line < 1 || anchor.line > fileLines.length) {
-        throw new Error(`Line ${anchor.line} does not exist (file has ${fileLines.length} lines)`)
+        throw withErrorKind(
+          new Error(`Line ${anchor.line} does not exist (file has ${fileLines.length} lines)`),
+          'out_of_range',
+        )
       }
     }
   }
@@ -779,7 +783,10 @@ function repairBoundaryVariants(
   }
   if (groups.length === 0) {
     if (ambiguousGroup) {
-      throw new Error(ambiguousBoundaryPlacementMessage(ambiguousGroup.startLine, ambiguousGroup.endLine))
+      throw withErrorKind(
+        new Error(ambiguousBoundaryPlacementMessage(ambiguousGroup.startLine, ambiguousGroup.endLine)),
+        'ambiguous_boundary',
+      )
     }
     return undefined
   }
@@ -822,14 +829,20 @@ function repairBoundaryVariants(
     }
     if (text !== bestText) {
       if (ambiguousGroup) {
-        throw new Error(ambiguousBoundaryPlacementMessage(ambiguousGroup.startLine, ambiguousGroup.endLine))
+        throw withErrorKind(
+          new Error(ambiguousBoundaryPlacementMessage(ambiguousGroup.startLine, ambiguousGroup.endLine)),
+          'ambiguous_boundary',
+        )
       }
       return undefined
     }
   }
   if (bestCombo === undefined) {
     if (ambiguousGroup) {
-      throw new Error(ambiguousBoundaryPlacementMessage(ambiguousGroup.startLine, ambiguousGroup.endLine))
+      throw withErrorKind(
+        new Error(ambiguousBoundaryPlacementMessage(ambiguousGroup.startLine, ambiguousGroup.endLine)),
+        'ambiguous_boundary',
+      )
     }
     return undefined
   }
@@ -1291,8 +1304,11 @@ export function applyEdits(text: string, edits: readonly Edit[], options: ApplyE
   // result, no speculative keep/drop variant may second-guess it.
   if (authoredParses) {
     if (ambiguity) {
-      throw new Error(
-        ambiguousBoundaryEchoMessage(ambiguity.startLine, ambiguity.endLine, ambiguity.side, ambiguity.count),
+      throw withErrorKind(
+        new Error(
+          ambiguousBoundaryEchoMessage(ambiguity.startLine, ambiguity.endLine, ambiguity.side, ambiguity.count),
+        ),
+        'ambiguous_boundary',
       )
     }
     return finish(authoredResult, leading)
@@ -1305,8 +1321,11 @@ export function applyEdits(text: string, edits: readonly Edit[], options: ApplyE
     }
   }
   if (ambiguity) {
-    throw new Error(
-      ambiguousBoundaryEchoMessage(ambiguity.startLine, ambiguity.endLine, ambiguity.side, ambiguity.count),
+    throw withErrorKind(
+      new Error(
+        ambiguousBoundaryEchoMessage(ambiguity.startLine, ambiguity.endLine, ambiguity.side, ambiguity.count),
+      ),
+      'ambiguous_boundary',
     )
   }
   // Nothing proven: leave the authored edit exactly as written. Report the
