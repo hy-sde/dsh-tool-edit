@@ -99,7 +99,11 @@ export function isPathInsideCwd(candidate: string, cwd: string): boolean {
  * process cwd.
  */
 export function toolCwdFromExec(exec: ToolRunContext): string {
-  const sessionCwd = (exec.agent?.session as { cwd?: string } | undefined)?.cwd
+  // The session carries its working directory in `header.cwd` (there is no
+  // top-level `session.cwd`); reading a nonexistent property here silently
+  // degraded every edit to `process.cwd()` — the harness host's checkout, not
+  // the session workspace (the 2026-10-07 subagent-worktree leak).
+  const sessionCwd = (exec.agent?.session as { header?: { cwd?: string } } | undefined)?.header?.cwd
   if (typeof sessionCwd === 'string' && sessionCwd.length > 0) return sessionCwd
   return process.cwd()
 }
