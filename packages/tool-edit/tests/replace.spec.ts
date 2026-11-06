@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
+import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import AgentRegistry from '@deepseek-ai/dsh-agent'
 import { createInboxStub } from '@deepseek-ai/dsh-agent-loop-testkit'
 import type { Agent } from '@deepseek-ai/dsh-agent'
@@ -13,6 +14,7 @@ import LocalFileSystem from '@deepseek-ai/dsh-fs-local'
 import * as FsPolicy from '@deepseek-ai/dsh-fs-observation-policy'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
+import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
 import * as ToolEdit from '../src/index.ts'
 import { errorKindOf } from '@hy-sde-org/dsh-hashline'
 import { applyCodexPatch, parseApplyPatch, parseApplyPatchStreaming } from '../src/apply-patch.ts'
@@ -35,6 +37,7 @@ function agent(ctx: Context, cwd: string): Agent {
   const value: Agent = {
     id,
     options: {},
+    model: { current: () => undefined, select: () => {} },
     session,
     inbox: createInboxStub(),
     status: 'idle',
@@ -57,12 +60,10 @@ function text(result: { content: { type: string; text?: string }[] }): string {
 
 function call(ctx: Context, owner: Agent | undefined, args: unknown) {
   return ctx.tools.execute({
+    calls: [{ type: 'tool-call' as const, id: ToolCallId(`tool-edit-${++callNumber}`), name: 'edit', arguments: JSON.stringify(args)}],
     signal: new AbortController().signal,
-    callId: ToolCallId(`tool-edit-${++callNumber}`),
-    name: 'edit',
-    arguments: args,
     ...owner === undefined ? {} : { agent: owner },
-  })
+  }).then(b => b.results[0]!.result)
 }
 
 async function setup(
@@ -75,6 +76,8 @@ async function setup(
   contexts.push(ctx)
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRuntime)
+  await ctx.plugin(NativeToolExecutor)
+  await ctx.plugin(SessionProjectionRegistry)
   await ctx.plugin(AgentRegistry)
   await ctx.plugin(LocalFileSystem, { cwd: root })
   if (options.fsPolicy === true) await ctx.plugin(FsPolicy)

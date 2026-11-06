@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
+import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import AgentRegistry from '@deepseek-ai/dsh-agent'
 import { createInboxStub } from '@deepseek-ai/dsh-agent-loop-testkit'
 import type { Agent } from '@deepseek-ai/dsh-agent'
@@ -14,6 +15,7 @@ import * as FsPolicy from '@deepseek-ai/dsh-fs-observation-policy'
 import { computeFileHash, getSessionSnapshotStore, InMemorySnapshotStore, Patch, type PatchSection } from '@hy-sde-org/dsh-hashline'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
+import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
 import { computeHashlineSectionDiff } from '../src/hashline/diff.ts'
 import { carriedSeenLines } from '../src/hashline/execute.ts'
 import { getSnapshotStore } from '../src/hashline/store.ts'
@@ -36,6 +38,7 @@ function agent(ctx: Context, cwd: string): Agent {
   const value: Agent = {
     id,
     options: {},
+    model: { current: () => undefined, select: () => {} },
     session,
     inbox: createInboxStub(),
     status: 'idle',
@@ -54,12 +57,10 @@ function agent(ctx: Context, cwd: string): Agent {
 
 function call(ctx: Context, owner: Agent | undefined, args: unknown) {
   return ctx.tools.execute({
+    calls: [{ type: 'tool-call' as const, id: ToolCallId(`tool-edit-hashline-${++callNumber}`), name: 'edit', arguments: JSON.stringify(args)}],
     signal: new AbortController().signal,
-    callId: ToolCallId(`tool-edit-hashline-${++callNumber}`),
-    name: 'edit',
-    arguments: args,
     ...owner === undefined ? {} : { agent: owner },
-  })
+  }).then(b => b.results[0]!.result)
 }
 
 async function setup(config: ToolEdit.Config = {}) {
@@ -69,6 +70,8 @@ async function setup(config: ToolEdit.Config = {}) {
   contexts.push(ctx)
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRuntime)
+  await ctx.plugin(NativeToolExecutor)
+  await ctx.plugin(SessionProjectionRegistry)
   await ctx.plugin(AgentRegistry)
   await ctx.plugin(LocalFileSystem, { cwd: root })
   const fiber = await ctx.plugin(ToolEdit, config)
@@ -195,7 +198,9 @@ describe('tool-edit (hashline) × fs-observation-policy', () => {
     contexts.push(ctx)
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
+    await ctx.plugin(NativeToolExecutor)
     await ctx.plugin(AgentRegistry)
+    await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(LocalFileSystem, { cwd: root })
     await ctx.plugin(FsPolicy)
     const fiber = await ctx.plugin(ToolEdit, config)
@@ -276,7 +281,9 @@ describe('tool-edit (hashline mode) × edit-result line provenance', () => {
     contexts.push(ctx)
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
+    await ctx.plugin(NativeToolExecutor)
     await ctx.plugin(AgentRegistry)
+    await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(LocalFileSystem, { cwd: root })
     const fiber = await ctx.plugin(ToolEdit, { enforceSeenLines: true })
     return { ctx, root, fiber, owner: agent(ctx, root) }
@@ -345,7 +352,9 @@ describe('tool-edit (hashline mode) × default seen-line enforcement', () => {
     contexts.push(ctx)
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
+    await ctx.plugin(NativeToolExecutor)
     await ctx.plugin(AgentRegistry)
+    await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(LocalFileSystem, { cwd: root })
     // No config — the flip under test is the DEFAULT.
     const fiber = await ctx.plugin(ToolEdit)
@@ -416,7 +425,9 @@ describe('tool-edit (hashline mode) × column-cut wide lines (upstream #15649)',
     contexts.push(ctx)
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
+    await ctx.plugin(NativeToolExecutor)
     await ctx.plugin(AgentRegistry)
+    await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(LocalFileSystem, { cwd: root })
     const fiber = await ctx.plugin(ToolEdit, { enforceSeenLines: true })
     return { ctx, root, fiber, owner: agent(ctx, root) }
@@ -567,7 +578,9 @@ describe('tool-edit (hashline mode) × carried read provenance', () => {
     contexts.push(ctx)
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
+    await ctx.plugin(NativeToolExecutor)
     await ctx.plugin(AgentRegistry)
+    await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(LocalFileSystem, { cwd: root })
     const fiber = await ctx.plugin(ToolEdit, { enforceSeenLines: true })
     return { ctx, root, fiber, owner: agent(ctx, root) }
